@@ -1,0 +1,14 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/village?serverTimezone=Asia/Seoul&characterEncoding=UTF-8}
+    username: ${DB_USERNAME:village}
+    password: ${DB_PASSWORD:village}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  jpa:
+    # 테이블 정의서 기반 스키마 확정 전까지 로컬에서만 자동 생성
+    hibernate:
+      ddl-auto: update
+    show-sql: true

@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: village-server
+  profiles:
+    default: local
+  jackson:
+    time-zone: Asia/Seoul
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: Asia/Seoul
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
