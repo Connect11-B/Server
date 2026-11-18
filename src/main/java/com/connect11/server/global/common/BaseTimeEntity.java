@@ -1,4 +1,4 @@
-package com.connect11.server.common;
+package com.connect11.server.global.common;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.EntityListeners;
@@ -15,10 +15,10 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 public abstract class BaseTimeEntity {
 
     @CreatedDate
-    @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "DATETIME(6)")
+    @Column(name = "created_at", nullable = false, updatable = false, precision = 6)
     private LocalDateTime createdAt;
 
     @LastModifiedDate
-    @Column(name = "updated_at", nullable = false, columnDefinition = "DATETIME(6)")
+    @Column(name = "updated_at", nullable = false, precision = 6)
     private LocalDateTime updatedAt;
 }
