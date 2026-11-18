@@ -28,7 +28,6 @@ app:
     code-pepper: ${AUTH_CODE_PEPPER}
     refresh-token-ttl-seconds: 1209600
   mail:
-    mode: log
     from: ${MAIL_FROM:}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:}

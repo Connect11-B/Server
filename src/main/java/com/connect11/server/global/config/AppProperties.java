@@ -13,8 +13,8 @@ public record AppProperties(Jwt jwt, Auth auth, Mail mail, Cors cors) {
     public record Auth(String codePepper, @DefaultValue("1209600") long refreshTokenTtlSeconds) {
     }// 14일
 
-    public record Mail(@DefaultValue("log") String mode, String from) {
-    }// 나중에 기본값 바꾸기
+    public record Mail(@DefaultValue("smtp") String mode, String from) {
+    }
 
     public record Cors(List<String> allowedOrigins) {
     }

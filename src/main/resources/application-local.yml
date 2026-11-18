@@ -14,3 +14,7 @@ spring:
     # 테이블 정의서 기반 스키마 확정 전까지 로컬에서만 자동 생성
     hibernate:
       ddl-auto: update
+
+app:
+  mail:
+    mode: log
