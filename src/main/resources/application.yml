@@ -27,7 +27,13 @@ app:
   auth:
     code-pepper: ${AUTH_CODE_PEPPER}
     refresh-token-ttl-seconds: 1209600
+    cookie-secure: ${COOKIE_SECURE:true}
+    cookie-same-site: ${COOKIE_SAME_SITE:Strict}
   mail:
     from: ${MAIL_FROM:}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:}
+  admin:
+    email: ${ADMIN_EMAIL:}
+    password: ${ADMIN_PASSWORD:}
+    name: ${ADMIN_NAME:관리자}

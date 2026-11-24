@@ -58,8 +58,8 @@ class EmailVerificationServiceImplTest {
         userRepository = mock(UserRepository.class);
         mailSender = mock(VerificationMailSender.class);
         hasher = new SecretHasher(new AppProperties(null,
-                new AppProperties.Auth("test-only-pepper-not-for-production", 1209600),
-                null, new AppProperties.Cors(List.of())));
+                new AppProperties.Auth("test-only-pepper-not-for-production", 1209600, true, "Strict"),
+                null, new AppProperties.Cors(List.of()), null));
         service = new EmailVerificationServiceImpl(verificationStore, tokenStore, rateLimiter,
                 userRepository, mailSender, hasher, Clock.fixed(NOW, ZoneOffset.UTC));
 

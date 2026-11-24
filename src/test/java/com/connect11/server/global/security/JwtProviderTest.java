@@ -87,6 +87,6 @@ class JwtProviderTest {
     }
 
     private static AppProperties props(String secret, long ttl) {
-        return new AppProperties(new AppProperties.Jwt(secret, ttl), null, null, null);
+        return new AppProperties(new AppProperties.Jwt(secret, ttl), null, null, null, null);
     }
 }

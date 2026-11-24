@@ -41,6 +41,6 @@ class MailModeGuardTest {
     }
 
     private static AppProperties props(String mode) {
-        return new AppProperties(null, null, new AppProperties.Mail(mode, null), null);
+        return new AppProperties(null, null, new AppProperties.Mail(mode, null), null, null);
     }
 }

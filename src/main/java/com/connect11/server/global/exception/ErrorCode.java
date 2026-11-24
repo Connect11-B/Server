@@ -24,6 +24,7 @@ public enum ErrorCode {
     ACCOUNT_INACTIVE(HttpStatus.FORBIDDEN, "사용할 수 없는 계정입니다."),
 
     EMAIL_ALREADY_REGISTERED(HttpStatus.CONFLICT, "이미 가입된 이메일입니다."),
+    STUDENT_NUMBER_ALREADY_REGISTERED(HttpStatus.CONFLICT, "이미 등록된 학번입니다."),
     EMAIL_VERIFICATION_ALREADY_USED(HttpStatus.CONFLICT, "이메일 인증 정보는 이미 사용되었습니다."),
     SIGNUP_TOKEN_ALREADY_USED(HttpStatus.CONFLICT, "회원가입 인증 정보는 이미 사용되었습니다."),
     RESET_TOKEN_ALREADY_USED(HttpStatus.CONFLICT, "비밀번호 재설정 인증 정보는 이미 사용되었습니다."),

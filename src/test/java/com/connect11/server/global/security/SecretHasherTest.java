@@ -48,6 +48,6 @@ class SecretHasherTest {
     }
 
     private static AppProperties props(String pepper) {
-        return new AppProperties(null, new AppProperties.Auth(pepper, 1209600), null, null);
+        return new AppProperties(null, new AppProperties.Auth(pepper, 1209600, true, "Strict"), null, null, null);
     }
 }
