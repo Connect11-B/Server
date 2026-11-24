@@ -34,7 +34,6 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-/** 보안 필터 체인·예외 처리기·JSON 직렬화를 거친 응답 형식과 접근 규칙을 검증한다. (Redis 없이 실행) */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -55,10 +54,8 @@ class AuthApiTest {
     @MockitoBean
     private PasswordResetService passwordResetService;
 
-    // ---- 회원가입 ----
-
     private static final String SIGNUP_JSON = """
-            {"signupToken":"t","email":"student@school.kr","password":"Example123!","displayName":"예시학생","studentNumber":"20240101"}
+            {"signupToken":"t","email":"student@school.kr","password":"Example123!","displayName":"예시학생","studentNumber":"1234"}
             """;
 
     @Test
@@ -83,7 +80,7 @@ class AuthApiTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"signupToken":"t","email":"student@school.kr","password":"Example123!",
-                                 "displayName":"예시학생","studentNumber":"20240101","role":"ADMIN","status":"ACTIVE"}
+                                 "displayName":"예시학생","studentNumber":"1234","role":"ADMIN","status":"ACTIVE"}
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.role").value("STUDENT"));
@@ -108,7 +105,7 @@ class AuthApiTest {
 
     @Test
     void 학번_형식이_틀리면_400() throws Exception {
-        for (String bad : new String[]{"", "2024 0101", "ADMIN-0123456789ab", "1".repeat(21), "학번"}) {
+        for (String bad : new String[]{"", "123", "12345", "12 4", "abcd", "ADMIN-0123456789ab", "１２３４"}) {
             mockMvc.perform(post("/api/v1/auth/signup")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
@@ -127,8 +124,6 @@ class AuthApiTest {
                 .andExpect(status().isGone())
                 .andExpect(jsonPath("$.error.code").value("SIGNUP_TOKEN_EXPIRED"));
     }
-
-    // ---- 로그인 ----
 
     @Test
     void 로그인은_access_token을_본문으로_refresh_token을_HttpOnly_쿠키로_내려준다() throws Exception {
@@ -205,8 +200,6 @@ class AuthApiTest {
                 .andExpect(status().isBadRequest());
     }
 
-    // ---- 토큰 재발급 ----
-
     @Test
     void 재발급은_쿠키의_refresh_token을_쓰고_새_쿠키를_내려준다() throws Exception {
         when(authService.refresh("sid.old")).thenReturn(new AuthService.RefreshResult(
@@ -268,8 +261,6 @@ class AuthApiTest {
                 .andExpect(header().string("Set-Cookie", Matchers.containsString("Max-Age=0")));
     }
 
-    // ---- 로그아웃 ----
-
     @Test
     void 로그아웃은_access_token_없이는_401() throws Exception {
         mockMvc.perform(post("/api/v1/auth/logout").cookie(new Cookie("refresh_token", "sid.secret")))
@@ -327,8 +318,6 @@ class AuthApiTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error.code").value("REFRESH_TOKEN_INVALID"));
     }
-
-    // ---- 비밀번호 재설정 ----
 
     @Test
     void 재설정은_Authorization_Bearer로_받은_토큰을_서비스에_넘긴다() throws Exception {

@@ -62,7 +62,7 @@ class SignupServiceImplTest {
         when(tokenStore.markUsed(VerificationPurpose.SIGNUP, TOKEN)).thenReturn(true);
     }
 
-    private static final String STUDENT_NO = "20240101";
+    private static final String STUDENT_NO = "1234";
 
     private SignupRequest request(String email, String password, String name) {
         return new SignupRequest(TOKEN, email, password, name, STUDENT_NO);
@@ -201,7 +201,7 @@ class SignupServiceImplTest {
     void 동시_가입으로_이메일_UNIQUE_제약에_걸리면_409_EMAIL_ALREADY_REGISTERED() {
         validToken();
         when(userRepository.saveAndFlush(any(User.class))).thenThrow(new DataIntegrityViolationException("dup"));
-        when(userRepository.existsByEmail(EMAIL)).thenReturn(false, true);   // 사전 확인 때는 없었고 충돌 뒤에는 있다
+        when(userRepository.existsByEmail(EMAIL)).thenReturn(false, true);
 
         assertThatThrownBy(() -> service.signup(request(EMAIL, PASSWORD, "학생")))
                 .isInstanceOf(BusinessException.class)

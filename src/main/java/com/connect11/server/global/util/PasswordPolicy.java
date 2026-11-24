@@ -2,7 +2,6 @@ package com.connect11.server.global.util;
 
 import java.nio.charset.StandardCharsets;
 
-/** 가입·비밀번호 재설정 공통 정책: 10~72자, 영문자와 숫자 포함. (로그인에서는 재검사하지 않는다) */
 public final class PasswordPolicy {
 
     public static final int MIN_LENGTH = 10;
@@ -18,7 +17,6 @@ public final class PasswordPolicy {
         if (password.length() < MIN_LENGTH || password.length() > MAX_LENGTH) {
             return false;
         }
-        // BCrypt는 72바이트까지만 반영한다. 멀티바이트 문자로 이를 넘으면 거부한다.
         if (password.getBytes(StandardCharsets.UTF_8).length > MAX_LENGTH) {
             return false;
         }

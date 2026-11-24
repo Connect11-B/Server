@@ -22,7 +22,6 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-/** refresh token을 쿠키로 쓰므로, 허용 목록에 없는 Origin의 요청이 서비스까지 닿지 않는지 확인한다. */
 @SpringBootTest(properties = "app.cors.allowed-origins=http://localhost:5173, https://village.school.kr")
 @AutoConfigureMockMvc
 @ActiveProfiles("test")

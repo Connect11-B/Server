@@ -13,7 +13,6 @@ final class RedisOps {
     private RedisOps() {
     }
 
-    // TTL 없는 키가 남지 않게 묶음
     static void putAllWithTtl(StringRedisTemplate redis, String key, Map<String, String> fields, Duration ttl) {
         redis.execute(new SessionCallback<List<Object>>() {
             @Override

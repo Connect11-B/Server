@@ -26,18 +26,18 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ApiErrorResponse> handleAuthentication(HttpServletRequest request) {
         return build(ErrorCode.UNAUTHENTICATED, request);
-    }//401
+    }
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiErrorResponse> handleAccessDenied(HttpServletRequest request) {
         return build(ErrorCode.FORBIDDEN, request);
-    }//403
+    }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiErrorResponse> handleUnexpected(Exception e, HttpServletRequest request) {
         log.error("처리되지 않은 예외들: {} {}", request.getMethod(), request.getRequestURI(), e);
         return build(ErrorCode.INTERNAL_ERROR, request);
-    }//500
+    }
 
     @Override
     protected ResponseEntity<Object> handleExceptionInternal(Exception ex, Object body, HttpHeaders headers, HttpStatusCode statusCode, WebRequest request) {

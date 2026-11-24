@@ -65,13 +65,8 @@ public class JwtProvider {
                 return Optional.empty();
             }
             return Optional.of(new AuthUser(Long.valueOf(subject), Role.valueOf(role), sid));
-        } catch (JwtException | IllegalArgumentException e) {//잘못된 숫자 subject, 알 수 없는 role, 빈 토큰 등
+        } catch (JwtException | IllegalArgumentException e) {
             return Optional.empty();
         }
     }
 }
-//전체 흐름
-//회원가입:  email/send → email/verify → signupToken → signup → login
-//로그인:    login → Access(30분) + Refresh(14일)
-//유지:      Access 만료 → refresh → 새 Access + 새 Refresh
-//비번 재설정: email/send(PASSWORD_RESET) → email/verify → resetToken → password/reset → 모든 세션 폐기

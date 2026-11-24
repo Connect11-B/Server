@@ -77,7 +77,6 @@ class RefreshTokenCookieTest {
         assertThatThrownBy(() -> new RefreshTokenCookie(props(false, "Strict"), prod))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Secure");
-        // 로컬에서는 http 개발을 위해 허용
         assertThat(new RefreshTokenCookie(props(false, "Strict"), new MockEnvironment()).issue("a.b").isSecure())
                 .isFalse();
     }

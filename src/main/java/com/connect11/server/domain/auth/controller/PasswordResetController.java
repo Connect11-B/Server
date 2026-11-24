@@ -23,7 +23,6 @@ public class PasswordResetController {
 
     private final PasswordResetService passwordResetService;
 
-    // 재설정 토큰은 Authorization: Bearer 로 받는다. (JwtAuthenticationFilter는 이 경로를 건너뛴다)
     @PostMapping("/reset")
     public ApiResponse<PasswordResetResponse> reset(
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,

@@ -28,5 +28,3 @@ public enum ApiSpec {
         return ApiInfo.unknown();
     }
 }
-
-//어떤 API에서 난 에러인지 표시

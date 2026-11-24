@@ -53,12 +53,10 @@ public class User extends BaseTimeEntity {
         this.status = UserStatus.ACTIVE;
     }
 
-    // 가입 API로는 STUDENT만 만들 수 있다.
     public static User createStudent(String email, String passwordHash, String name, String studentNumber) {
         return new User(email, passwordHash, name, studentNumber, Role.STUDENT);
     }
 
-    // 명세: ADMIN은 운영자가 시드로 발급한다. 시작 시 시드(AdminAccountInitializer)에서만 호출한다.
     public static User createAdmin(String email, String passwordHash, String name, String studentNumber) {
         return new User(email, passwordHash, name, studentNumber, Role.ADMIN);
     }

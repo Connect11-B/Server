@@ -5,7 +5,6 @@ import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
 import org.springframework.stereotype.Component;
 
-/** 잘못된 메일 설정으로 운영 서버가 뜨지 않게 기동 시점에 검사한다. */
 @Component
 public class MailModeGuard {
 

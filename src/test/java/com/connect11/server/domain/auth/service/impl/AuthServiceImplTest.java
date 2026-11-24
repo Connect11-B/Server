@@ -69,7 +69,7 @@ class AuthServiceImplTest {
         service = new AuthServiceImpl(userRepository, encoder, jwtProvider, sessionStore, limiter,
                 new SecretHasher(props), props);
 
-        user = User.createStudent(EMAIL, encoder.encode(PASSWORD), "예시학생", "20240101");
+        user = User.createStudent(EMAIL, encoder.encode(PASSWORD), "예시학생", "1234");
         ReflectionTestUtils.setField(user, "id", 1L);
 
         when(limiter.increment(anyString(), any())).thenReturn(1L);
@@ -86,14 +86,12 @@ class AuthServiceImplTest {
         return new LoginRequest(username, password);
     }
 
-    // ---- 로그인 ----
-
     @Test
     void 로그인에_성공하면_토큰과_사용자_정보를_돌려주고_시도_횟수를_초기화한다() {
         LoginResult result = service.login(login(" Student@School.kr ", PASSWORD), IP);
         LoginResponse response = result.body();
 
-        assertThat(result.refreshToken()).isEqualTo("sid-1.secret");   // 쿠키로만 나간다
+        assertThat(result.refreshToken()).isEqualTo("sid-1.secret");
         assertThat(response.toString()).doesNotContain("sid-1.secret");
         assertThat(response.tokenType()).isEqualTo("Bearer");
         assertThat(response.accessTokenExpiresIn()).isEqualTo(1800);
@@ -145,7 +143,6 @@ class AuthServiceImplTest {
         ReflectionTestUtils.setField(user, "status", UserStatus.INACTIVE);
 
         assertThat(errorOf(() -> service.login(login(EMAIL, PASSWORD), IP))).isEqualTo(ErrorCode.ACCOUNT_INACTIVE);
-        // 비밀번호가 틀리면 비활성 여부를 알려 주지 않는다.
         assertThat(errorOf(() -> service.login(login(EMAIL, "WrongPassword1"), IP)))
                 .isEqualTo(ErrorCode.AUTHENTICATION_FAILED);
         verify(sessionStore, never()).create(any(), any());
@@ -191,8 +188,6 @@ class AuthServiceImplTest {
         assertThat(errorOf(() -> service.login(login(EMAIL, "a".repeat(100)), IP)))
                 .isEqualTo(ErrorCode.AUTHENTICATION_FAILED);
     }
-
-    // ---- 토큰 재발급 ----
 
     @Test
     void 재발급에_성공하면_새_토큰_쌍을_돌려준다() {
@@ -258,8 +253,6 @@ class AuthServiceImplTest {
                 .isEqualTo(ErrorCode.REFRESH_TOKEN_INVALID);
         verify(sessionStore).revokeSession("sid-1");
     }
-
-    // ---- 로그아웃 ----
 
     @Test
     void 로그아웃은_요청_사용자의_세션을_폐기한다() {

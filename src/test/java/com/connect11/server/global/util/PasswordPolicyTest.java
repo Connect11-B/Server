@@ -14,10 +14,10 @@ class PasswordPolicyTest {
 
     @Test
     void 길이_경계값() {
-        assertThat(PasswordPolicy.isValid("abcdefgh1")).isFalse();               // 9자
-        assertThat(PasswordPolicy.isValid("abcdefghi1")).isTrue();               // 10자
-        assertThat(PasswordPolicy.isValid("a1".repeat(36))).isTrue();            // 72자
-        assertThat(PasswordPolicy.isValid("a1".repeat(36) + "a")).isFalse();     // 73자
+        assertThat(PasswordPolicy.isValid("abcdefgh1")).isFalse();
+        assertThat(PasswordPolicy.isValid("abcdefghi1")).isTrue();
+        assertThat(PasswordPolicy.isValid("a1".repeat(36))).isTrue();
+        assertThat(PasswordPolicy.isValid("a1".repeat(36) + "a")).isFalse();
     }
 
     @Test
@@ -34,7 +34,7 @@ class PasswordPolicyTest {
 
     @Test
     void 글자_수는_72자_이하여도_UTF8_72바이트를_넘으면_거부() {
-        String password = "가".repeat(30) + "a1";   // 32자지만 92바이트
+        String password = "가".repeat(30) + "a1";
         assertThat(password.length()).isLessThanOrEqualTo(72);
         assertThat(PasswordPolicy.isValid(password)).isFalse();
     }

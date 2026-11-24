@@ -38,7 +38,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(AbstractHttpConfigurer::disable)      // CSRF 필요없음
+                .csrf(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .logout(AbstractHttpConfigurer::disable)
@@ -52,7 +52,6 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/actuator/health", "/error").permitAll()
 
-                        // 비회원
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/auth/email/send",
                                 "/api/v1/auth/email/verify",
@@ -67,10 +66,8 @@ public class SecurityConfig {
                                 "/api/v1/operating/exceptions",
                                 "/api/v1/files/images/*").permitAll()
 
-                        // 관리자
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
 
-                        // 학생
                         .requestMatchers(HttpMethod.POST, "/api/v1/rentals", "/api/v1/rentals/*/cancel",
                                 "/api/v1/inquiries", "/api/v1/files/signatures").hasRole("STUDENT")
                         .requestMatchers(HttpMethod.GET, "/api/v1/rentals/me", "/api/v1/rentals/me/*",
@@ -93,7 +90,7 @@ public class SecurityConfig {
         config.setAllowedOrigins(origins);
         config.setAllowedMethods(List.of("GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
-        config.setAllowCredentials(true);   // refresh token 쿠키. 허용 Origin은 위에서 명시한 목록뿐이다.
+        config.setAllowCredentials(true);
         config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

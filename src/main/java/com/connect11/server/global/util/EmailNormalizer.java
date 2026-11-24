@@ -11,7 +11,6 @@ public final class EmailNormalizer {
         return email == null ? null : email.trim().toLowerCase(Locale.ROOT);
     }
 
-    //이메일 노출 막기
     public static String mask(String email) {
         if (email == null) {
             return null;

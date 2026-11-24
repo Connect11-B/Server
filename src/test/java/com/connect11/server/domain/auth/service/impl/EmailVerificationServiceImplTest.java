@@ -76,7 +76,7 @@ class EmailVerificationServiceImplTest {
 
         assertThat(response.expiresIn()).isEqualTo(600);
         assertThat(response.resendAfter()).isEqualTo(60);
-        verify(mailSender).sendCode(eq(EMAIL), anyString(), eq(VerificationPurpose.SIGNUP)); // 정규화된 이메일로 발송
+        verify(mailSender).sendCode(eq(EMAIL), anyString(), eq(VerificationPurpose.SIGNUP));
     }
 
     @Test

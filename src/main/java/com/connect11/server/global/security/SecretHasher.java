@@ -60,5 +60,4 @@ public class SecretHasher {
         }
         return MessageDigest.isEqual(a.getBytes(StandardCharsets.UTF_8), b.getBytes(StandardCharsets.UTF_8));
     }
-    //응답시간을다같게 해서 공격자 타이밍 공격 방지하는 메서드
 }

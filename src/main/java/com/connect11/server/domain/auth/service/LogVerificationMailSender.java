@@ -6,7 +6,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
-/** 로컬·테스트 전용. 메일 대신 코드를 로그로 출력한다. prod에서는 MailModeGuard가 기동을 막는다. */
 @Slf4j
 @Component
 @ConditionalOnProperty(prefix = "app.mail", name = "mode", havingValue = "log")

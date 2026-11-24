@@ -52,7 +52,7 @@ class PasswordResetServiceImplTest {
         service = new PasswordResetServiceImpl(tokenStore, userRepository, sessionStore, encoder,
                 Clock.fixed(NOW, ZoneOffset.UTC));
 
-        user = User.createStudent(EMAIL, encoder.encode("OldPassword123!"), "학생", "20240101");
+        user = User.createStudent(EMAIL, encoder.encode("OldPassword123!"), "학생", "1234");
         ReflectionTestUtils.setField(user, "id", 7L);
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(user));
     }

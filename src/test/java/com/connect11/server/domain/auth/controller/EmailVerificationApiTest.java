@@ -25,10 +25,6 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-/**
- * 실제 보안 필터 체인·예외 처리기·JSON 직렬화를 거쳐 응답 형식을 검증한다.
- * Redis를 쓰는 서비스는 Mock으로 바꿔서 CI에서도 Redis 없이 실행된다.
- */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -147,8 +143,6 @@ class EmailVerificationApiTest {
                 .andExpect(jsonPath("$.error.code").value("INTERNAL_ERROR"))
                 .andExpect(jsonPath("$.error.message").value("서버 오류가 발생했습니다."));
     }
-
-    // ---- 2묶음(권한 규칙) 확인 ----
 
     @Test
     void 토큰_없이_보호된_API를_호출하면_401_UNAUTHENTICATED() throws Exception {

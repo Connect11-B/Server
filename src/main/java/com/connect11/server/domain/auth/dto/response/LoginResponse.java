@@ -2,7 +2,6 @@ package com.connect11.server.domain.auth.dto.response;
 
 import com.connect11.server.domain.user.entity.Role;
 
-// refresh token은 본문에 없다. HttpOnly 쿠키로만 전달한다.
 public record LoginResponse(
         String tokenType,
         String accessToken,

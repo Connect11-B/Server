@@ -27,10 +27,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * access token은 응답 본문(프론트가 메모리에 보관), refresh token은 HttpOnly 쿠키로 주고받는다.
- * 교차 출처 요청은 CORS 설정의 허용 Origin 목록으로 걸러지고, 쿠키는 SameSite 속성으로 한 번 더 제한된다.
- */
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
@@ -53,7 +49,6 @@ public class AuthController {
     @PostMapping("/login")
     public ApiResponse<LoginResponse> login(@Valid @RequestBody LoginRequest request,
                                             HttpServletRequest http, HttpServletResponse response) {
-        // X-Forwarded-For는 클라이언트가 조작할 수 있으므로 직접 연결된 주소만 쓴다.
         AuthService.LoginResult result = authService.login(request, http.getRemoteAddr());
         noStore(response);
         response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.issue(result.refreshToken()).toString());
@@ -66,7 +61,6 @@ public class AuthController {
         try {
             result = authService.refresh(refreshCookie.read(http).orElse(null));
         } catch (BusinessException e) {
-            // 쓸 수 없는 refresh token은 브라우저에 남겨 두지 않는다.
             if (CLEAR_COOKIE_ON.contains(e.getErrorCode())) {
                 response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.clear().toString());
             }
@@ -81,7 +75,6 @@ public class AuthController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void logout(@AuthenticationPrincipal AuthUser authUser, HttpServletRequest http,
                        HttpServletResponse response) {
-        // 결과와 상관없이 쿠키는 지운다.
         response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.clear().toString());
         authService.logout(authUser.userId(), authUser.sessionId(), refreshCookie.read(http).orElse(null));
     }
