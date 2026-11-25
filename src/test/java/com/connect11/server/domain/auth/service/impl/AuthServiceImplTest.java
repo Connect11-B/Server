@@ -12,19 +12,21 @@ import static org.mockito.Mockito.when;
 
 import com.connect11.server.domain.auth.dto.request.LoginRequest;
 import com.connect11.server.domain.auth.dto.response.LoginResponse;
-import com.connect11.server.domain.auth.service.AuthService.LoginResult;
-import com.connect11.server.domain.auth.service.AuthService.RefreshResult;
+import com.connect11.server.domain.auth.exception.AuthErrorCode;
 import com.connect11.server.domain.auth.repository.LoginAttemptLimiter;
-import com.connect11.server.domain.auth.repository.RefreshSessionStore;
 import com.connect11.server.domain.auth.repository.RefreshSessionStore.Issued;
 import com.connect11.server.domain.auth.repository.RefreshSessionStore.RotateResult;
 import com.connect11.server.domain.auth.repository.RefreshSessionStore.Status;
+import com.connect11.server.domain.auth.repository.RefreshSessionStore;
+import com.connect11.server.domain.auth.service.AuthService.LoginResult;
+import com.connect11.server.domain.auth.service.AuthService.RefreshResult;
 import com.connect11.server.domain.user.entity.Role;
 import com.connect11.server.domain.user.entity.User;
 import com.connect11.server.domain.user.entity.UserStatus;
 import com.connect11.server.domain.user.repository.UserRepository;
+import com.connect11.server.global.common.CustomErrorCode;
 import com.connect11.server.global.config.AppProperties;
-import com.connect11.server.global.exception.BusinessException;
+import com.connect11.server.global.exception.CustomException;
 import com.connect11.server.global.exception.ErrorCode;
 import com.connect11.server.global.security.AuthUser;
 import com.connect11.server.global.security.JwtProvider;
@@ -78,8 +80,8 @@ class AuthServiceImplTest {
         when(sessionStore.create(eq(1L), any())).thenReturn(new Issued("sid-1", "sid-1.secret"));
     }
 
-    private ErrorCode errorOf(ThrowingCallable callable) {
-        return ((BusinessException) Assertions.catchThrowable(callable)).getErrorCode();
+    private CustomErrorCode errorOf(ThrowingCallable callable) {
+        return ((CustomException) Assertions.catchThrowable(callable)).getErrorCode();
     }
 
     private LoginRequest login(String username, String password) {
@@ -125,7 +127,7 @@ class AuthServiceImplTest {
     @Test
     void 비밀번호가_틀리면_401이고_세션을_만들지_않는다() {
         assertThat(errorOf(() -> service.login(login(EMAIL, "WrongPassword1"), IP)))
-                .isEqualTo(ErrorCode.AUTHENTICATION_FAILED);
+                .isEqualTo(AuthErrorCode.AUTHENTICATION_FAILED);
         verify(sessionStore, never()).create(any(), any());
         verify(limiter, never()).reset(anyString());
     }
@@ -135,16 +137,16 @@ class AuthServiceImplTest {
         when(userRepository.findByEmail("nobody@school.kr")).thenReturn(Optional.empty());
 
         assertThat(errorOf(() -> service.login(login("nobody@school.kr", PASSWORD), IP)))
-                .isEqualTo(ErrorCode.AUTHENTICATION_FAILED);
+                .isEqualTo(AuthErrorCode.AUTHENTICATION_FAILED);
     }
 
     @Test
     void 비활성_계정은_비밀번호가_맞을_때만_403() {
         ReflectionTestUtils.setField(user, "status", UserStatus.INACTIVE);
 
-        assertThat(errorOf(() -> service.login(login(EMAIL, PASSWORD), IP))).isEqualTo(ErrorCode.ACCOUNT_INACTIVE);
+        assertThat(errorOf(() -> service.login(login(EMAIL, PASSWORD), IP))).isEqualTo(AuthErrorCode.ACCOUNT_INACTIVE);
         assertThat(errorOf(() -> service.login(login(EMAIL, "WrongPassword1"), IP)))
-                .isEqualTo(ErrorCode.AUTHENTICATION_FAILED);
+                .isEqualTo(AuthErrorCode.AUTHENTICATION_FAILED);
         verify(sessionStore, never()).create(any(), any());
     }
 
@@ -152,7 +154,7 @@ class AuthServiceImplTest {
     void 시도_횟수를_넘으면_429이고_계정_조회도_하지_않는다() {
         when(limiter.increment(anyString(), any())).thenReturn(6L);
 
-        assertThat(errorOf(() -> service.login(login(EMAIL, PASSWORD), IP))).isEqualTo(ErrorCode.LOGIN_RATE_LIMITED);
+        assertThat(errorOf(() -> service.login(login(EMAIL, PASSWORD), IP))).isEqualTo(AuthErrorCode.LOGIN_RATE_LIMITED);
         verifyNoInteractions(userRepository);
         verify(sessionStore, never()).create(any(), any());
     }
@@ -186,7 +188,7 @@ class AuthServiceImplTest {
     @Test
     void 비밀번호가_72바이트를_넘어도_예외_없이_401() {
         assertThat(errorOf(() -> service.login(login(EMAIL, "a".repeat(100)), IP)))
-                .isEqualTo(ErrorCode.AUTHENTICATION_FAILED);
+                .isEqualTo(AuthErrorCode.AUTHENTICATION_FAILED);
     }
 
     @Test
@@ -219,14 +221,14 @@ class AuthServiceImplTest {
 
     @Test
     void 재발급_실패_사유가_오류_코드로_매핑된다() {
-        assertRefreshError(Status.INVALID, ErrorCode.REFRESH_TOKEN_INVALID);
-        assertRefreshError(Status.EXPIRED, ErrorCode.REFRESH_TOKEN_EXPIRED);
-        assertRefreshError(Status.REVOKED, ErrorCode.REFRESH_TOKEN_REVOKED);
-        assertRefreshError(Status.REUSED, ErrorCode.REFRESH_TOKEN_REVOKED);
+        assertRefreshError(Status.INVALID, AuthErrorCode.REFRESH_TOKEN_INVALID);
+        assertRefreshError(Status.EXPIRED, AuthErrorCode.REFRESH_TOKEN_EXPIRED);
+        assertRefreshError(Status.REVOKED, AuthErrorCode.REFRESH_TOKEN_REVOKED);
+        assertRefreshError(Status.REUSED, AuthErrorCode.REFRESH_TOKEN_REVOKED);
         verify(userRepository, never()).findById(any());
     }
 
-    private void assertRefreshError(Status status, ErrorCode expected) {
+    private void assertRefreshError(Status status, CustomErrorCode expected) {
         when(sessionStore.rotate("sid-1.old", REFRESH_TTL))
                 .thenReturn(new RotateResult(status, status == Status.REUSED ? 1L : null, "sid-1", null));
         assertThat(errorOf(() -> service.refresh("sid-1.old"))).isEqualTo(expected);
@@ -239,7 +241,7 @@ class AuthServiceImplTest {
                 .thenReturn(new RotateResult(Status.OK, 1L, "sid-1", "sid-1.new"));
 
         assertThat(errorOf(() -> service.refresh("sid-1.old")))
-                .isEqualTo(ErrorCode.ACCOUNT_INACTIVE);
+                .isEqualTo(AuthErrorCode.ACCOUNT_INACTIVE);
         verify(sessionStore).revokeSession("sid-1");
     }
 
@@ -250,7 +252,7 @@ class AuthServiceImplTest {
                 .thenReturn(new RotateResult(Status.OK, 1L, "sid-1", "sid-1.new"));
 
         assertThat(errorOf(() -> service.refresh("sid-1.old")))
-                .isEqualTo(ErrorCode.REFRESH_TOKEN_INVALID);
+                .isEqualTo(AuthErrorCode.REFRESH_TOKEN_INVALID);
         verify(sessionStore).revokeSession("sid-1");
     }
 
@@ -268,7 +270,7 @@ class AuthServiceImplTest {
         when(sessionStore.revokeOwned("sid-9.secret", 1L)).thenReturn(false);
 
         assertThat(errorOf(() -> service.logout(1L, "sid-1", "sid-9.secret")))
-                .isEqualTo(ErrorCode.REFRESH_TOKEN_INVALID);
+                .isEqualTo(AuthErrorCode.REFRESH_TOKEN_INVALID);
     }
 
     @Test

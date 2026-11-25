@@ -3,8 +3,8 @@ package com.connect11.server.domain.auth.controller;
 import com.connect11.server.domain.auth.dto.request.PasswordResetRequest;
 import com.connect11.server.domain.auth.dto.response.PasswordResetResponse;
 import com.connect11.server.domain.auth.service.PasswordResetService;
-import com.connect11.server.global.response.ApiResponse;
-import com.connect11.server.global.response.ApiSpec;
+import com.connect11.server.global.common.ApiResponse;
+import com.connect11.server.global.common.ApiSpec;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -27,7 +27,7 @@ public class PasswordResetController {
     public ApiResponse<PasswordResetResponse> reset(
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @Valid @RequestBody PasswordResetRequest request) {
-        return ApiResponse.of(ApiSpec.PASSWORD_RESET,
+        return ApiResponse.ok(ApiSpec.PASSWORD_RESET,
                 passwordResetService.reset(extractBearer(authorization), request));
     }
 

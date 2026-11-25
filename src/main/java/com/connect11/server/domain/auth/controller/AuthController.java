@@ -5,12 +5,13 @@ import com.connect11.server.domain.auth.dto.request.SignupRequest;
 import com.connect11.server.domain.auth.dto.response.LoginResponse;
 import com.connect11.server.domain.auth.dto.response.SignupResponse;
 import com.connect11.server.domain.auth.dto.response.TokenRefreshResponse;
+import com.connect11.server.domain.auth.exception.AuthErrorCode;
 import com.connect11.server.domain.auth.service.AuthService;
 import com.connect11.server.domain.auth.service.SignupService;
+import com.connect11.server.global.common.ApiResponse;
+import com.connect11.server.global.common.ApiSpec;
+import com.connect11.server.global.common.CustomErrorCode;
 import com.connect11.server.global.exception.BusinessException;
-import com.connect11.server.global.exception.ErrorCode;
-import com.connect11.server.global.response.ApiResponse;
-import com.connect11.server.global.response.ApiSpec;
 import com.connect11.server.global.security.AuthUser;
 import com.connect11.server.global.security.RefreshTokenCookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -32,9 +33,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class AuthController {
 
-    private static final Set<ErrorCode> CLEAR_COOKIE_ON = Set.of(
-            ErrorCode.REFRESH_TOKEN_INVALID, ErrorCode.REFRESH_TOKEN_EXPIRED,
-            ErrorCode.REFRESH_TOKEN_REVOKED, ErrorCode.ACCOUNT_INACTIVE);
+    private static final Set<CustomErrorCode> CLEAR_COOKIE_ON = Set.of(
+            AuthErrorCode.REFRESH_TOKEN_INVALID, AuthErrorCode.REFRESH_TOKEN_EXPIRED,
+            AuthErrorCode.REFRESH_TOKEN_REVOKED, AuthErrorCode.ACCOUNT_INACTIVE);
 
     private final SignupService signupService;
     private final AuthService authService;
@@ -43,7 +44,7 @@ public class AuthController {
     @PostMapping("/signup")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<SignupResponse> signup(@Valid @RequestBody SignupRequest request) {
-        return ApiResponse.of(ApiSpec.SIGNUP, signupService.signup(request));
+        return ApiResponse.ok(ApiSpec.SIGNUP, signupService.signup(request));
     }
 
     @PostMapping("/login")
@@ -52,7 +53,7 @@ public class AuthController {
         AuthService.LoginResult result = authService.login(request, http.getRemoteAddr());
         noStore(response);
         response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.issue(result.refreshToken()).toString());
-        return ApiResponse.of(ApiSpec.AUTH_LOGIN, result.body());
+        return ApiResponse.ok(ApiSpec.AUTH_LOGIN, result.body());
     }
 
     @PostMapping("/refresh")
@@ -68,7 +69,7 @@ public class AuthController {
         }
         noStore(response);
         response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.issue(result.refreshToken()).toString());
-        return ApiResponse.of(ApiSpec.AUTH_REFRESH, result.body());
+        return ApiResponse.ok(ApiSpec.AUTH_REFRESH, result.body());
     }
 
     @PostMapping("/logout")

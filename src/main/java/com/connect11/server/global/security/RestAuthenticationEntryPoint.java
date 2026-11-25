@@ -1,6 +1,6 @@
 package com.connect11.server.global.security;
 
-import com.connect11.server.global.exception.BusinessException;
+import com.connect11.server.global.exception.CustomException;
 import com.connect11.server.global.exception.ErrorCode;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -22,6 +22,6 @@ public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response,
                          AuthenticationException authException) {
-        resolver.resolveException(request, response, null, new BusinessException(ErrorCode.UNAUTHENTICATED));
+        resolver.resolveException(request, response, null, new CustomException(ErrorCode.UNAUTHENTICATED));
     }
 }

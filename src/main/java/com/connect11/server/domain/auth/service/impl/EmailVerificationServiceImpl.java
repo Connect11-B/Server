@@ -4,14 +4,14 @@ import com.connect11.server.domain.auth.dto.request.*;
 import com.connect11.server.domain.auth.dto.response.*;
 import com.connect11.server.domain.auth.entity.EmailVerification;
 import com.connect11.server.domain.auth.entity.VerificationPurpose;
+import com.connect11.server.domain.auth.exception.AuthErrorCode;
 import com.connect11.server.domain.auth.repository.EmailSendRateLimiter;
 import com.connect11.server.domain.auth.repository.EmailVerificationStore;
 import com.connect11.server.domain.auth.repository.VerificationTokenStore;
 import com.connect11.server.domain.auth.service.EmailVerificationService;
 import com.connect11.server.domain.auth.service.VerificationMailSender;
 import com.connect11.server.domain.user.repository.UserRepository;
-import com.connect11.server.global.exception.BusinessException;
-import com.connect11.server.global.exception.ErrorCode;
+import com.connect11.server.global.exception.CustomException;
 import com.connect11.server.global.security.SecretHasher;
 import com.connect11.server.global.util.EmailNormalizer;
 import com.connect11.server.global.util.SecureRandoms;
@@ -51,19 +51,19 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
         String emailKey = hasher.emailHash(email);
 
         if (rateLimiter.incrementIpHourly(hasher.hmac("ip:" + clientIp), HOURLY_WINDOW) > IP_HOURLY_LIMIT) {
-            throw new BusinessException(ErrorCode.EMAIL_RATE_LIMITED);
+            throw new CustomException(AuthErrorCode.EMAIL_RATE_LIMITED);
         }
 
         if (!rateLimiter.tryAcquireCooldown(emailKey, RESEND_AFTER)) {
-            throw new BusinessException(ErrorCode.EMAIL_RATE_LIMITED);
+            throw new CustomException(AuthErrorCode.EMAIL_RATE_LIMITED);
         }
         if (rateLimiter.incrementHourly(emailKey, HOURLY_WINDOW) > HOURLY_LIMIT) {
-            throw new BusinessException(ErrorCode.EMAIL_RATE_LIMITED);
+            throw new CustomException(AuthErrorCode.EMAIL_RATE_LIMITED);
         }
 
         boolean registered = userRepository.existsByEmail(email);
         if (purpose == VerificationPurpose.SIGNUP && registered) {
-            throw new BusinessException(ErrorCode.EMAIL_ALREADY_REGISTERED);
+            throw new CustomException(AuthErrorCode.EMAIL_ALREADY_REGISTERED);
         }
 
         String id = UUID.randomUUID().toString();
@@ -83,7 +83,7 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
                 log.warn("인증 메일 발송 실패: purpose={} cause={}", purpose, e.getClass().getSimpleName());
                 verificationStore.delete(id);
                 rateLimiter.releaseCooldown(emailKey);
-                throw new BusinessException(ErrorCode.EMAIL_SEND_FAILED);
+                throw new CustomException(AuthErrorCode.EMAIL_SEND_FAILED);
             }
         }
         return new EmailSendResponse(id, CODE_TTL.toSeconds(), RESEND_AFTER.toSeconds());
@@ -92,32 +92,32 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
     @Override
     public EmailVerifyResponse verify(EmailVerifyRequest request) {
         EmailVerification v = verificationStore.find(request.verificationId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.EMAIL_VERIFICATION_INVALID));
+                .orElseThrow(() -> new CustomException(AuthErrorCode.EMAIL_VERIFICATION_INVALID));
 
         if (v.used()) {
-            throw new BusinessException(ErrorCode.EMAIL_VERIFICATION_ALREADY_USED);
+            throw new CustomException(AuthErrorCode.EMAIL_VERIFICATION_ALREADY_USED);
         }
         if (clock.instant().getEpochSecond() >= v.expiresAtEpochSecond()) {
-            throw new BusinessException(ErrorCode.EMAIL_VERIFICATION_EXPIRED);
+            throw new CustomException(AuthErrorCode.EMAIL_VERIFICATION_EXPIRED);
         }
 
         long attempt = verificationStore.incrementAttempts(v.id());
         if (attempt < 0) {
-            throw new BusinessException(ErrorCode.EMAIL_VERIFICATION_INVALID);
+            throw new CustomException(AuthErrorCode.EMAIL_VERIFICATION_INVALID);
         }
         if (attempt > MAX_ATTEMPTS) {
-            throw new BusinessException(ErrorCode.EMAIL_VERIFICATION_ATTEMPTS_EXCEEDED);
+            throw new CustomException(AuthErrorCode.EMAIL_VERIFICATION_ATTEMPTS_EXCEEDED);
         }
 
         String candidate = hasher.codeHash(v.id(), request.code());
         if (!SecretHasher.constantTimeEquals(candidate, v.codeHash())) {
-            throw new BusinessException(attempt == MAX_ATTEMPTS
-                    ? ErrorCode.EMAIL_VERIFICATION_ATTEMPTS_EXCEEDED
-                    : ErrorCode.EMAIL_VERIFICATION_INVALID);
+            throw new CustomException(attempt == MAX_ATTEMPTS
+                    ? AuthErrorCode.EMAIL_VERIFICATION_ATTEMPTS_EXCEEDED
+                    : AuthErrorCode.EMAIL_VERIFICATION_INVALID);
         }
 
         if (!verificationStore.markUsed(v.id())) {
-            throw new BusinessException(ErrorCode.EMAIL_VERIFICATION_ALREADY_USED);
+            throw new CustomException(AuthErrorCode.EMAIL_VERIFICATION_ALREADY_USED);
         }
 
         long tokenExpiresAt = clock.instant().plus(TOKEN_TTL).getEpochSecond();

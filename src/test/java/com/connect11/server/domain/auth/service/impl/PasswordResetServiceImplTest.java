@@ -11,12 +11,13 @@ import com.connect11.server.domain.auth.dto.request.PasswordResetRequest;
 import com.connect11.server.domain.auth.dto.response.PasswordResetResponse;
 import com.connect11.server.domain.auth.entity.VerificationPurpose;
 import com.connect11.server.domain.auth.entity.VerificationToken;
+import com.connect11.server.domain.auth.exception.AuthErrorCode;
 import com.connect11.server.domain.auth.repository.RefreshSessionStore;
 import com.connect11.server.domain.auth.repository.VerificationTokenStore;
 import com.connect11.server.domain.user.entity.User;
 import com.connect11.server.domain.user.repository.UserRepository;
-import com.connect11.server.global.exception.BusinessException;
-import com.connect11.server.global.exception.ErrorCode;
+import com.connect11.server.global.common.CustomErrorCode;
+import com.connect11.server.global.exception.CustomException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -67,8 +68,8 @@ class PasswordResetServiceImplTest {
         when(tokenStore.markUsed(VerificationPurpose.PASSWORD_RESET, TOKEN)).thenReturn(true);
     }
 
-    private ErrorCode errorOf(ThrowingCallable callable) {
-        return ((BusinessException) Assertions.catchThrowable(callable)).getErrorCode();
+    private CustomErrorCode errorOf(ThrowingCallable callable) {
+        return ((CustomException) Assertions.catchThrowable(callable)).getErrorCode();
     }
 
     @Test
@@ -88,9 +89,9 @@ class PasswordResetServiceImplTest {
     @Test
     void 토큰이_없거나_비어_있으면_401_RESET_TOKEN_INVALID() {
         assertThat(errorOf(() -> service.reset(null, new PasswordResetRequest(NEW_PASSWORD))))
-                .isEqualTo(ErrorCode.RESET_TOKEN_INVALID);
+                .isEqualTo(AuthErrorCode.RESET_TOKEN_INVALID);
         assertThat(errorOf(() -> service.reset("  ", new PasswordResetRequest(NEW_PASSWORD))))
-                .isEqualTo(ErrorCode.RESET_TOKEN_INVALID);
+                .isEqualTo(AuthErrorCode.RESET_TOKEN_INVALID);
     }
 
     @Test
@@ -98,7 +99,7 @@ class PasswordResetServiceImplTest {
         when(tokenStore.find(VerificationPurpose.PASSWORD_RESET, TOKEN)).thenReturn(Optional.empty());
 
         assertThat(errorOf(() -> service.reset(TOKEN, new PasswordResetRequest(NEW_PASSWORD))))
-                .isEqualTo(ErrorCode.RESET_TOKEN_INVALID);
+                .isEqualTo(AuthErrorCode.RESET_TOKEN_INVALID);
         verify(sessionStore, never()).revokeAllForUser(any());
     }
 
@@ -107,7 +108,7 @@ class PasswordResetServiceImplTest {
         tokenIs(true, NOW.getEpochSecond() + 300);
 
         assertThat(errorOf(() -> service.reset(TOKEN, new PasswordResetRequest(NEW_PASSWORD))))
-                .isEqualTo(ErrorCode.RESET_TOKEN_ALREADY_USED);
+                .isEqualTo(AuthErrorCode.RESET_TOKEN_ALREADY_USED);
     }
 
     @Test
@@ -115,7 +116,7 @@ class PasswordResetServiceImplTest {
         tokenIs(false, NOW.getEpochSecond());
 
         assertThat(errorOf(() -> service.reset(TOKEN, new PasswordResetRequest(NEW_PASSWORD))))
-                .isEqualTo(ErrorCode.RESET_TOKEN_EXPIRED);
+                .isEqualTo(AuthErrorCode.RESET_TOKEN_EXPIRED);
     }
 
     @Test
@@ -123,7 +124,7 @@ class PasswordResetServiceImplTest {
         validToken();
 
         assertThat(errorOf(() -> service.reset(TOKEN, new PasswordResetRequest("short1"))))
-                .isEqualTo(ErrorCode.PASSWORD_POLICY_VIOLATION);
+                .isEqualTo(AuthErrorCode.PASSWORD_POLICY_VIOLATION);
         verify(tokenStore, never()).markUsed(any(), any());
         verify(sessionStore, never()).revokeAllForUser(any());
     }
@@ -134,7 +135,7 @@ class PasswordResetServiceImplTest {
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
 
         assertThat(errorOf(() -> service.reset(TOKEN, new PasswordResetRequest(NEW_PASSWORD))))
-                .isEqualTo(ErrorCode.RESET_TOKEN_INVALID);
+                .isEqualTo(AuthErrorCode.RESET_TOKEN_INVALID);
         verify(tokenStore, never()).markUsed(any(), any());
     }
 
@@ -144,7 +145,7 @@ class PasswordResetServiceImplTest {
         when(tokenStore.markUsed(VerificationPurpose.PASSWORD_RESET, TOKEN)).thenReturn(false);
 
         assertThat(errorOf(() -> service.reset(TOKEN, new PasswordResetRequest(NEW_PASSWORD))))
-                .isEqualTo(ErrorCode.RESET_TOKEN_ALREADY_USED);
+                .isEqualTo(AuthErrorCode.RESET_TOKEN_ALREADY_USED);
         verify(userRepository, never()).save(any());
         verify(sessionStore, never()).revokeAllForUser(any());
     }

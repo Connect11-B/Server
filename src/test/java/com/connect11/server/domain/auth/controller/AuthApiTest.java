@@ -17,12 +17,13 @@ import com.connect11.server.domain.auth.dto.response.LoginResponse;
 import com.connect11.server.domain.auth.dto.response.PasswordResetResponse;
 import com.connect11.server.domain.auth.dto.response.SignupResponse;
 import com.connect11.server.domain.auth.dto.response.TokenRefreshResponse;
+import com.connect11.server.domain.auth.exception.AuthErrorCode;
 import com.connect11.server.domain.auth.repository.RefreshSessionStore;
 import com.connect11.server.domain.auth.service.AuthService;
 import com.connect11.server.domain.auth.service.PasswordResetService;
 import com.connect11.server.domain.auth.service.SignupService;
 import com.connect11.server.domain.user.entity.Role;
-import com.connect11.server.global.exception.BusinessException;
+import com.connect11.server.global.exception.CustomException;
 import com.connect11.server.global.exception.ErrorCode;
 import com.connect11.server.global.security.JwtProvider;
 import jakarta.servlet.http.Cookie;
@@ -129,7 +130,7 @@ class AuthApiTest {
 
     @Test
     void 가입_오류는_명세의_상태와_코드로_내려간다() throws Exception {
-        when(signupService.signup(any())).thenThrow(new BusinessException(ErrorCode.SIGNUP_TOKEN_EXPIRED));
+        when(signupService.signup(any())).thenThrow(new CustomException(AuthErrorCode.SIGNUP_TOKEN_EXPIRED));
 
         mockMvc.perform(post("/api/v1/auth/signup").contentType(MediaType.APPLICATION_JSON).content(SIGNUP_JSON))
                 .andExpect(status().isGone())
@@ -168,7 +169,7 @@ class AuthApiTest {
 
     @Test
     void 로그인_실패는_401이고_쿠키를_내려주지_않는다() throws Exception {
-        when(authService.login(any(), any())).thenThrow(new BusinessException(ErrorCode.AUTHENTICATION_FAILED));
+        when(authService.login(any(), any())).thenThrow(new CustomException(AuthErrorCode.AUTHENTICATION_FAILED));
 
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -183,7 +184,7 @@ class AuthApiTest {
 
     @Test
     void 로그인_시도_제한은_429() throws Exception {
-        when(authService.login(any(), any())).thenThrow(new BusinessException(ErrorCode.LOGIN_RATE_LIMITED));
+        when(authService.login(any(), any())).thenThrow(new CustomException(AuthErrorCode.LOGIN_RATE_LIMITED));
 
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -228,7 +229,7 @@ class AuthApiTest {
 
     @Test
     void 요청_본문의_refreshToken은_무시한다() throws Exception {
-        when(authService.refresh(null)).thenThrow(new BusinessException(ErrorCode.UNAUTHENTICATED));
+        when(authService.refresh(null)).thenThrow(new CustomException(ErrorCode.UNAUTHENTICATED));
 
         mockMvc.perform(post("/api/v1/auth/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -242,7 +243,7 @@ class AuthApiTest {
 
     @Test
     void 쿠키가_없으면_401_UNAUTHENTICATED이고_쿠키를_건드리지_않는다() throws Exception {
-        when(authService.refresh(null)).thenThrow(new BusinessException(ErrorCode.UNAUTHENTICATED));
+        when(authService.refresh(null)).thenThrow(new CustomException(ErrorCode.UNAUTHENTICATED));
 
         mockMvc.perform(post("/api/v1/auth/refresh"))
                 .andExpect(status().isUnauthorized())
@@ -253,7 +254,7 @@ class AuthApiTest {
 
     @Test
     void 폐기된_토큰은_401_REFRESH_TOKEN_REVOKED이고_쿠키를_지운다() throws Exception {
-        when(authService.refresh("sid.old")).thenThrow(new BusinessException(ErrorCode.REFRESH_TOKEN_REVOKED));
+        when(authService.refresh("sid.old")).thenThrow(new CustomException(AuthErrorCode.REFRESH_TOKEN_REVOKED));
 
         mockMvc.perform(post("/api/v1/auth/refresh").cookie(new Cookie("refresh_token", "sid.old")))
                 .andExpect(status().isUnauthorized())
@@ -264,7 +265,7 @@ class AuthApiTest {
 
     @Test
     void 비활성_계정이면_403이고_쿠키를_지운다() throws Exception {
-        when(authService.refresh("sid.old")).thenThrow(new BusinessException(ErrorCode.ACCOUNT_INACTIVE));
+        when(authService.refresh("sid.old")).thenThrow(new CustomException(AuthErrorCode.ACCOUNT_INACTIVE));
 
         mockMvc.perform(post("/api/v1/auth/refresh").cookie(new Cookie("refresh_token", "sid.old")))
                 .andExpect(status().isForbidden())
@@ -320,7 +321,7 @@ class AuthApiTest {
     @Test
     void 다른_사용자의_refresh_token이면_401_REFRESH_TOKEN_INVALID() throws Exception {
         String student = jwtProvider.createAccessToken(1L, Role.STUDENT, "sid-1");
-        org.mockito.Mockito.doThrow(new BusinessException(ErrorCode.REFRESH_TOKEN_INVALID))
+        org.mockito.Mockito.doThrow(new CustomException(AuthErrorCode.REFRESH_TOKEN_INVALID))
                 .when(authService).logout(eq(1L), eq("sid-1"), eq("sid-9.secret"));
 
         mockMvc.perform(post("/api/v1/auth/logout")
@@ -348,7 +349,7 @@ class AuthApiTest {
     @Test
     void 재설정_토큰이_없으면_401_RESET_TOKEN_INVALID() throws Exception {
         when(passwordResetService.reset(eq(null), any()))
-                .thenThrow(new BusinessException(ErrorCode.RESET_TOKEN_INVALID));
+                .thenThrow(new CustomException(AuthErrorCode.RESET_TOKEN_INVALID));
 
         mockMvc.perform(post("/api/v1/password/reset")
                         .contentType(MediaType.APPLICATION_JSON)

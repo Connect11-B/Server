@@ -13,19 +13,20 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.connect11.server.domain.auth.dto.request.EmailSendRequest;
-import com.connect11.server.domain.auth.dto.response.EmailSendResponse;
 import com.connect11.server.domain.auth.dto.request.EmailVerifyRequest;
+import com.connect11.server.domain.auth.dto.response.EmailSendResponse;
 import com.connect11.server.domain.auth.dto.response.EmailVerifyResponse;
 import com.connect11.server.domain.auth.entity.EmailVerification;
 import com.connect11.server.domain.auth.entity.VerificationPurpose;
+import com.connect11.server.domain.auth.exception.AuthErrorCode;
 import com.connect11.server.domain.auth.repository.EmailSendRateLimiter;
 import com.connect11.server.domain.auth.repository.EmailVerificationStore;
 import com.connect11.server.domain.auth.repository.VerificationTokenStore;
 import com.connect11.server.domain.auth.service.VerificationMailSender;
 import com.connect11.server.domain.user.repository.UserRepository;
+import com.connect11.server.global.common.CustomErrorCode;
 import com.connect11.server.global.config.AppProperties;
-import com.connect11.server.global.exception.BusinessException;
-import com.connect11.server.global.exception.ErrorCode;
+import com.connect11.server.global.exception.CustomException;
 import com.connect11.server.global.security.SecretHasher;
 import java.time.Clock;
 import java.time.Instant;
@@ -86,7 +87,7 @@ class EmailVerificationServiceImplTest {
         when(userRepository.existsByEmail(EMAIL)).thenReturn(true);
 
         assertError(() -> service.send(new EmailSendRequest(EMAIL, VerificationPurpose.SIGNUP), IP),
-                ErrorCode.EMAIL_ALREADY_REGISTERED);
+                AuthErrorCode.EMAIL_ALREADY_REGISTERED);
         verify(mailSender, never()).sendCode(anyString(), anyString(), any());
     }
 
@@ -106,7 +107,7 @@ class EmailVerificationServiceImplTest {
         when(rateLimiter.tryAcquireCooldown(anyString(), any())).thenReturn(false);
 
         assertError(() -> service.send(new EmailSendRequest(EMAIL, VerificationPurpose.SIGNUP), IP),
-                ErrorCode.EMAIL_RATE_LIMITED);
+                AuthErrorCode.EMAIL_RATE_LIMITED);
     }
 
     @Test
@@ -114,7 +115,7 @@ class EmailVerificationServiceImplTest {
         when(rateLimiter.incrementHourly(anyString(), any())).thenReturn(6L);
 
         assertError(() -> service.send(new EmailSendRequest(EMAIL, VerificationPurpose.SIGNUP), IP),
-                ErrorCode.EMAIL_RATE_LIMITED);
+                AuthErrorCode.EMAIL_RATE_LIMITED);
     }
 
     @Test
@@ -124,7 +125,7 @@ class EmailVerificationServiceImplTest {
                 .when(mailSender).sendCode(anyString(), anyString(), any());
 
         assertError(() -> service.send(new EmailSendRequest(EMAIL, VerificationPurpose.SIGNUP), IP),
-                ErrorCode.EMAIL_SEND_FAILED);
+                AuthErrorCode.EMAIL_SEND_FAILED);
         verify(verificationStore).delete(anyString());
         verify(rateLimiter).releaseCooldown(anyString());
     }
@@ -163,11 +164,11 @@ class EmailVerificationServiceImplTest {
         givenVerification(VerificationPurpose.SIGNUP, "123456", NOW.plusSeconds(600), false);
 
         when(verificationStore.incrementAttempts(ID)).thenReturn(1L);
-        assertError(() -> service.verify(new EmailVerifyRequest(ID, "000000")), ErrorCode.EMAIL_VERIFICATION_INVALID);
+        assertError(() -> service.verify(new EmailVerifyRequest(ID, "000000")), AuthErrorCode.EMAIL_VERIFICATION_INVALID);
 
         when(verificationStore.incrementAttempts(ID)).thenReturn(5L);
         assertError(() -> service.verify(new EmailVerifyRequest(ID, "000000")),
-                ErrorCode.EMAIL_VERIFICATION_ATTEMPTS_EXCEEDED);
+                AuthErrorCode.EMAIL_VERIFICATION_ATTEMPTS_EXCEEDED);
     }
 
     @Test
@@ -176,7 +177,7 @@ class EmailVerificationServiceImplTest {
         when(verificationStore.incrementAttempts(ID)).thenReturn(6L);
 
         assertError(() -> service.verify(new EmailVerifyRequest(ID, "123456")),
-                ErrorCode.EMAIL_VERIFICATION_ATTEMPTS_EXCEEDED);
+                AuthErrorCode.EMAIL_VERIFICATION_ATTEMPTS_EXCEEDED);
         verify(tokenStore, never()).issue(any(), anyString(), anyLong(), any());
     }
 
@@ -184,7 +185,7 @@ class EmailVerificationServiceImplTest {
     void 만료된_코드는_410() {
         givenVerification(VerificationPurpose.SIGNUP, "123456", NOW.minusSeconds(1), false);
 
-        assertError(() -> service.verify(new EmailVerifyRequest(ID, "123456")), ErrorCode.EMAIL_VERIFICATION_EXPIRED);
+        assertError(() -> service.verify(new EmailVerifyRequest(ID, "123456")), AuthErrorCode.EMAIL_VERIFICATION_EXPIRED);
     }
 
     @Test
@@ -192,7 +193,7 @@ class EmailVerificationServiceImplTest {
         givenVerification(VerificationPurpose.SIGNUP, "123456", NOW.plusSeconds(600), true);
 
         assertError(() -> service.verify(new EmailVerifyRequest(ID, "123456")),
-                ErrorCode.EMAIL_VERIFICATION_ALREADY_USED);
+                AuthErrorCode.EMAIL_VERIFICATION_ALREADY_USED);
     }
 
     @Test
@@ -202,7 +203,7 @@ class EmailVerificationServiceImplTest {
         when(verificationStore.markUsed(ID)).thenReturn(false);
 
         assertError(() -> service.verify(new EmailVerifyRequest(ID, "123456")),
-                ErrorCode.EMAIL_VERIFICATION_ALREADY_USED);
+                AuthErrorCode.EMAIL_VERIFICATION_ALREADY_USED);
         verify(tokenStore, never()).issue(any(), anyString(), anyLong(), any());
     }
 
@@ -210,7 +211,7 @@ class EmailVerificationServiceImplTest {
     void 존재하지_않는_인증ID는_401() {
         when(verificationStore.find(ID)).thenReturn(Optional.empty());
 
-        assertError(() -> service.verify(new EmailVerifyRequest(ID, "123456")), ErrorCode.EMAIL_VERIFICATION_INVALID);
+        assertError(() -> service.verify(new EmailVerifyRequest(ID, "123456")), AuthErrorCode.EMAIL_VERIFICATION_INVALID);
     }
 
     private void givenVerification(VerificationPurpose purpose, String code, Instant expiresAt, boolean used) {
@@ -218,10 +219,10 @@ class EmailVerificationServiceImplTest {
                 ID, EMAIL, purpose, hasher.codeHash(ID, code), expiresAt.getEpochSecond(), used)));
     }
 
-    private static void assertError(ThrowingCallable call, ErrorCode expected) {
+    private static void assertError(ThrowingCallable call, CustomErrorCode expected) {
         assertThatThrownBy(call)
-                .isInstanceOf(BusinessException.class)
-                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isInstanceOf(CustomException.class)
+                .extracting(e -> ((CustomException) e).getErrorCode())
                 .isEqualTo(expected);
     }
 
@@ -230,7 +231,7 @@ class EmailVerificationServiceImplTest {
         when(rateLimiter.incrementIpHourly(anyString(), any())).thenReturn(21L);
 
         assertError(() -> service.send(new EmailSendRequest("other@school.kr", VerificationPurpose.SIGNUP), IP),
-                ErrorCode.EMAIL_RATE_LIMITED);
+                AuthErrorCode.EMAIL_RATE_LIMITED);
         verify(rateLimiter, never()).tryAcquireCooldown(anyString(), any());
         verify(mailSender, never()).sendCode(anyString(), anyString(), any());
     }

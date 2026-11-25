@@ -1,9 +1,10 @@
 package com.connect11.server.global.exception;
 
-import com.connect11.server.global.response.ApiErrorResponse;
+import com.connect11.server.global.common.CustomErrorCode;
+import com.connect11.server.global.common.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -14,41 +15,72 @@ import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
-@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
+    private final ErrorResponseFactory factory;
+    private final FailureLogger failureLogger;
+
+    public GlobalExceptionHandler(ErrorResponseFactory factory, FailureLogger failureLogger) {
+        this.factory = factory;
+        this.failureLogger = failureLogger;
+    }
+
     @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<ApiErrorResponse> handleBusiness(BusinessException e, HttpServletRequest request) {
-        return build(e.getErrorCode(), request);
+    ResponseEntity<ErrorResponse> handleCustomException(BusinessException exception, HttpServletRequest request) {
+        return respond(request, exception.getErrorCode(), exception.getMessage());
     }
 
     @ExceptionHandler(AuthenticationException.class)
-    public ResponseEntity<ApiErrorResponse> handleAuthentication(HttpServletRequest request) {
-        return build(ErrorCode.UNAUTHENTICATED, request);
+    ResponseEntity<ErrorResponse> handleAuthentication(HttpServletRequest request) {
+        return respond(request, ErrorCode.UNAUTHENTICATED, ErrorCode.UNAUTHENTICATED.getMessage());
     }
 
     @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<ApiErrorResponse> handleAccessDenied(HttpServletRequest request) {
-        return build(ErrorCode.FORBIDDEN, request);
+    ResponseEntity<ErrorResponse> handleAccessDenied(HttpServletRequest request) {
+        return respond(request, ErrorCode.FORBIDDEN, ErrorCode.FORBIDDEN.getMessage());
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiErrorResponse> handleUnexpected(Exception e, HttpServletRequest request) {
-        log.error("처리되지 않은 예외들: {} {}", request.getMethod(), request.getRequestURI(), e);
-        return build(ErrorCode.INTERNAL_ERROR, request);
+    ResponseEntity<ErrorResponse> handleUnexpected(Exception exception, HttpServletRequest request) {
+        failureLogger.logUnexpected(request, exception);
+        return respond(request, ErrorCode.INTERNAL_ERROR, ErrorCode.INTERNAL_ERROR.getMessage());
     }
 
     @Override
-    protected ResponseEntity<Object> handleExceptionInternal(Exception ex, Object body, HttpHeaders headers, HttpStatusCode statusCode, WebRequest request) {
-        if (statusCode.value() == 400 && request instanceof ServletWebRequest servletRequest) {
-            return ResponseEntity.badRequest()
-                    .body(ApiErrorResponse.of(servletRequest.getRequest(), ErrorCode.VALIDATION_ERROR));
+    protected ResponseEntity<Object> handleExceptionInternal(Exception ex, Object body, HttpHeaders headers,
+                                                             HttpStatusCode statusCode, WebRequest request) {
+        if (!(request instanceof ServletWebRequest servletRequest)) {
+            return super.handleExceptionInternal(ex, body, headers, statusCode, request);
         }
-        return super.handleExceptionInternal(ex, body, headers, statusCode, request);
+        HttpServletRequest httpRequest = servletRequest.getRequest();
+        if (statusCode.is5xxServerError()) {
+            failureLogger.logUnexpected(httpRequest, ex);
+        }
+        ErrorCode code = ErrorCode.fromStatus(statusCode);
+        HttpHeaders responseHeaders = new HttpHeaders();
+        if (headers != null) {
+            responseHeaders.putAll(headers);
+        }
+        addCommonHeaders(httpRequest, statusCode, responseHeaders);
+        return ResponseEntity.status(statusCode)
+                .headers(responseHeaders)
+                .body(factory.create(httpRequest, code));
     }
 
-    private ResponseEntity<ApiErrorResponse> build(ErrorCode errorCode, HttpServletRequest request) {
-        return ResponseEntity.status(errorCode.getStatus()).body(ApiErrorResponse.of(request, errorCode));
+    private ResponseEntity<ErrorResponse> respond(HttpServletRequest request, CustomErrorCode code, String message) {
+        HttpStatus status = code.getHttpStatus();
+        HttpHeaders headers = new HttpHeaders();
+        addCommonHeaders(request, status, headers);
+        return ResponseEntity.status(status).headers(headers).body(factory.create(request, code, message));
+    }
+
+    private static void addCommonHeaders(HttpServletRequest request, HttpStatusCode status, HttpHeaders headers) {
+        if (request.getAttribute(FailureLogger.REQUEST_ID) instanceof String requestId) {
+            headers.set("X-Request-ID", requestId);
+        }
+        if (status.value() == HttpStatus.UNAUTHORIZED.value()) {
+            headers.set(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
+        }
     }
 }

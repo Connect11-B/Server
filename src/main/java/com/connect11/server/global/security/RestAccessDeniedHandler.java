@@ -1,6 +1,6 @@
 package com.connect11.server.global.security;
 
-import com.connect11.server.global.exception.BusinessException;
+import com.connect11.server.global.exception.CustomException;
 import com.connect11.server.global.exception.ErrorCode;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -22,6 +22,6 @@ public class RestAccessDeniedHandler implements AccessDeniedHandler {
     @Override
     public void handle(HttpServletRequest request, HttpServletResponse response,
                        AccessDeniedException accessDeniedException) {
-        resolver.resolveException(request, response, null, new BusinessException(ErrorCode.FORBIDDEN));
+        resolver.resolveException(request, response, null, new CustomException(ErrorCode.FORBIDDEN));
     }
 }

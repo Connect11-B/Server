@@ -11,11 +11,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.connect11.server.domain.auth.dto.response.EmailSendResponse;
 import com.connect11.server.domain.auth.dto.response.EmailVerifyResponse;
 import com.connect11.server.domain.auth.entity.VerificationPurpose;
+import com.connect11.server.domain.auth.exception.AuthErrorCode;
 import com.connect11.server.domain.auth.repository.RefreshSessionStore;
 import com.connect11.server.domain.auth.service.EmailVerificationService;
 import com.connect11.server.domain.user.entity.Role;
-import com.connect11.server.global.exception.BusinessException;
-import com.connect11.server.global.exception.ErrorCode;
+import com.connect11.server.global.exception.CustomException;
 import com.connect11.server.global.security.JwtProvider;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
@@ -112,7 +112,7 @@ class EmailVerificationApiTest {
 
     @Test
     void 비즈니스_예외는_해당_상태코드와_에러코드로_응답한다() throws Exception {
-        when(emailVerificationService.send(any(), any())).thenThrow(new BusinessException(ErrorCode.EMAIL_RATE_LIMITED));
+        when(emailVerificationService.send(any(), any())).thenThrow(new CustomException(AuthErrorCode.EMAIL_RATE_LIMITED));
 
         mockMvc.perform(post("/api/v1/auth/email/send")
                         .contentType(MediaType.APPLICATION_JSON)

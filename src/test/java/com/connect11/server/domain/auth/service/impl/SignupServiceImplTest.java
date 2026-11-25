@@ -12,11 +12,13 @@ import com.connect11.server.domain.auth.dto.request.SignupRequest;
 import com.connect11.server.domain.auth.dto.response.SignupResponse;
 import com.connect11.server.domain.auth.entity.VerificationPurpose;
 import com.connect11.server.domain.auth.entity.VerificationToken;
+import com.connect11.server.domain.auth.exception.AuthErrorCode;
 import com.connect11.server.domain.auth.repository.VerificationTokenStore;
 import com.connect11.server.domain.user.entity.Role;
 import com.connect11.server.domain.user.entity.User;
 import com.connect11.server.domain.user.repository.UserRepository;
-import com.connect11.server.global.exception.BusinessException;
+import com.connect11.server.global.common.CustomErrorCode;
+import com.connect11.server.global.exception.CustomException;
 import com.connect11.server.global.exception.ErrorCode;
 import java.time.Clock;
 import java.time.Instant;
@@ -68,8 +70,8 @@ class SignupServiceImplTest {
         return new SignupRequest(TOKEN, email, password, name, STUDENT_NO);
     }
 
-    private ErrorCode errorOf(ThrowingCallable callable) {
-        return ((BusinessException) catchThrowable(callable)).getErrorCode();
+    private CustomErrorCode errorOf(ThrowingCallable callable) {
+        return ((CustomException) catchThrowable(callable)).getErrorCode();
     }
 
     private Throwable catchThrowable(ThrowingCallable callable) {
@@ -103,7 +105,7 @@ class SignupServiceImplTest {
         when(tokenStore.find(VerificationPurpose.SIGNUP, TOKEN)).thenReturn(Optional.empty());
 
         assertThat(errorOf(() -> service.signup(request(EMAIL, PASSWORD, "학생"))))
-                .isEqualTo(ErrorCode.SIGNUP_TOKEN_INVALID);
+                .isEqualTo(AuthErrorCode.SIGNUP_TOKEN_INVALID);
         verify(userRepository, never()).saveAndFlush(any());
     }
 
@@ -112,7 +114,7 @@ class SignupServiceImplTest {
         validToken();
 
         assertThat(errorOf(() -> service.signup(request("other@school.kr", PASSWORD, "학생"))))
-                .isEqualTo(ErrorCode.SIGNUP_TOKEN_INVALID);
+                .isEqualTo(AuthErrorCode.SIGNUP_TOKEN_INVALID);
         verify(tokenStore, never()).markUsed(any(), any());
         verify(userRepository, never()).saveAndFlush(any());
     }
@@ -122,7 +124,7 @@ class SignupServiceImplTest {
         tokenIs(EMAIL, true, NOW.getEpochSecond() + 300);
 
         assertThat(errorOf(() -> service.signup(request(EMAIL, PASSWORD, "학생"))))
-                .isEqualTo(ErrorCode.SIGNUP_TOKEN_ALREADY_USED);
+                .isEqualTo(AuthErrorCode.SIGNUP_TOKEN_ALREADY_USED);
         verify(userRepository, never()).saveAndFlush(any());
     }
 
@@ -131,7 +133,7 @@ class SignupServiceImplTest {
         tokenIs(EMAIL, false, NOW.getEpochSecond());
 
         assertThat(errorOf(() -> service.signup(request(EMAIL, PASSWORD, "학생"))))
-                .isEqualTo(ErrorCode.SIGNUP_TOKEN_EXPIRED);
+                .isEqualTo(AuthErrorCode.SIGNUP_TOKEN_EXPIRED);
         verify(userRepository, never()).saveAndFlush(any());
     }
 
@@ -141,7 +143,7 @@ class SignupServiceImplTest {
 
         for (String bad : new String[]{"short1A", "onlyletterspassword", "1234567890123", "a1".repeat(37)}) {
             assertThat(errorOf(() -> service.signup(request(EMAIL, bad, "학생"))))
-                    .isEqualTo(ErrorCode.PASSWORD_POLICY_VIOLATION);
+                    .isEqualTo(AuthErrorCode.PASSWORD_POLICY_VIOLATION);
         }
         verify(tokenStore, never()).markUsed(any(), any());
         verify(userRepository, never()).saveAndFlush(any());
@@ -172,7 +174,7 @@ class SignupServiceImplTest {
         when(userRepository.existsByEmail(EMAIL)).thenReturn(true);
 
         assertThat(errorOf(() -> service.signup(request(EMAIL, PASSWORD, "학생"))))
-                .isEqualTo(ErrorCode.EMAIL_ALREADY_REGISTERED);
+                .isEqualTo(AuthErrorCode.EMAIL_ALREADY_REGISTERED);
         verify(tokenStore, never()).markUsed(any(), any());
     }
 
@@ -182,7 +184,7 @@ class SignupServiceImplTest {
         when(userRepository.existsByStudentNumber(STUDENT_NO)).thenReturn(true);
 
         assertThat(errorOf(() -> service.signup(request(EMAIL, PASSWORD, "학생"))))
-                .isEqualTo(ErrorCode.STUDENT_NUMBER_ALREADY_REGISTERED);
+                .isEqualTo(AuthErrorCode.STUDENT_NUMBER_ALREADY_REGISTERED);
         verify(tokenStore, never()).markUsed(any(), any());
         verify(userRepository, never()).saveAndFlush(any());
     }
@@ -193,7 +195,7 @@ class SignupServiceImplTest {
         when(tokenStore.markUsed(VerificationPurpose.SIGNUP, TOKEN)).thenReturn(false);
 
         assertThat(errorOf(() -> service.signup(request(EMAIL, PASSWORD, "학생"))))
-                .isEqualTo(ErrorCode.SIGNUP_TOKEN_ALREADY_USED);
+                .isEqualTo(AuthErrorCode.SIGNUP_TOKEN_ALREADY_USED);
         verify(userRepository, never()).saveAndFlush(any());
     }
 
@@ -204,9 +206,9 @@ class SignupServiceImplTest {
         when(userRepository.existsByEmail(EMAIL)).thenReturn(false, true);
 
         assertThatThrownBy(() -> service.signup(request(EMAIL, PASSWORD, "학생")))
-                .isInstanceOf(BusinessException.class)
-                .extracting(e -> ((BusinessException) e).getErrorCode())
-                .isEqualTo(ErrorCode.EMAIL_ALREADY_REGISTERED);
+                .isInstanceOf(CustomException.class)
+                .extracting(e -> ((CustomException) e).getErrorCode())
+                .isEqualTo(AuthErrorCode.EMAIL_ALREADY_REGISTERED);
     }
 
     @Test
@@ -215,7 +217,7 @@ class SignupServiceImplTest {
         when(userRepository.saveAndFlush(any(User.class))).thenThrow(new DataIntegrityViolationException("dup"));
 
         assertThat(errorOf(() -> service.signup(request(EMAIL, PASSWORD, "학생"))))
-                .isEqualTo(ErrorCode.STUDENT_NUMBER_ALREADY_REGISTERED);
+                .isEqualTo(AuthErrorCode.STUDENT_NUMBER_ALREADY_REGISTERED);
     }
 
     @Test

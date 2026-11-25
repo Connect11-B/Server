@@ -1,45 +1,55 @@
 package com.connect11.server.global.exception;
 
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
+import com.connect11.server.global.common.CustomErrorCode;
+import java.util.Arrays;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 
-@Getter
-@RequiredArgsConstructor
-public enum ErrorCode {
-
+public enum ErrorCode implements CustomErrorCode {
     VALIDATION_ERROR(HttpStatus.BAD_REQUEST, "요청 값을 확인해 주세요."),
-    PASSWORD_POLICY_VIOLATION(HttpStatus.BAD_REQUEST, "비밀번호 조건을 확인해 주세요."),
-
     UNAUTHENTICATED(HttpStatus.UNAUTHORIZED, "인증이 필요합니다."),
-    AUTHENTICATION_FAILED(HttpStatus.UNAUTHORIZED, "아이디 또는 비밀번호가 올바르지 않습니다."),
-    EMAIL_VERIFICATION_INVALID(HttpStatus.UNAUTHORIZED, "이메일 인증 정보가 유효하지 않습니다."),
-    SIGNUP_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "회원가입 인증 정보가 유효하지 않습니다."),
-    REFRESH_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "갱신 토큰이 유효하지 않습니다."),
-    REFRESH_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "갱신 토큰이 만료되었습니다."),
-    REFRESH_TOKEN_REVOKED(HttpStatus.UNAUTHORIZED, "갱신 토큰이 폐기되었습니다."),
-    RESET_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "비밀번호 재설정 인증 정보가 유효하지 않습니다."),
-
     FORBIDDEN(HttpStatus.FORBIDDEN, "접근 권한이 없습니다."),
-    ACCOUNT_INACTIVE(HttpStatus.FORBIDDEN, "사용할 수 없는 계정입니다."),
-
-    EMAIL_ALREADY_REGISTERED(HttpStatus.CONFLICT, "이미 가입된 이메일입니다."),
-    STUDENT_NUMBER_ALREADY_REGISTERED(HttpStatus.CONFLICT, "이미 등록된 학번입니다."),
-    EMAIL_VERIFICATION_ALREADY_USED(HttpStatus.CONFLICT, "이메일 인증 정보는 이미 사용되었습니다."),
-    SIGNUP_TOKEN_ALREADY_USED(HttpStatus.CONFLICT, "회원가입 인증 정보는 이미 사용되었습니다."),
-    RESET_TOKEN_ALREADY_USED(HttpStatus.CONFLICT, "비밀번호 재설정 인증 정보는 이미 사용되었습니다."),
-
-    EMAIL_VERIFICATION_EXPIRED(HttpStatus.GONE, "이메일 인증 코드가 만료되었습니다."),
-    SIGNUP_TOKEN_EXPIRED(HttpStatus.GONE, "회원가입 인증 정보가 만료되었습니다."),
-    RESET_TOKEN_EXPIRED(HttpStatus.GONE, "비밀번호 재설정 인증 정보가 만료되었습니다."),
-
-    EMAIL_RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "잠시 후 다시 시도해 주세요."),
-    EMAIL_VERIFICATION_ATTEMPTS_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "인증 시도 횟수를 초과했습니다."),
-    LOGIN_RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요."),
-
+    NOT_FOUND(HttpStatus.NOT_FOUND, "요청한 정보를 찾을 수 없습니다."),
+    METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "지원하지 않는 요청 메서드입니다."),
+    NOT_ACCEPTABLE(HttpStatus.NOT_ACCEPTABLE, "지원하지 않는 응답 형식입니다."),
+    CONFLICT(HttpStatus.CONFLICT, "현재 상태에서는 요청을 처리할 수 없습니다."),
+    PAYLOAD_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "업로드 가능한 파일 크기를 초과했습니다."),
+    UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "지원하지 않는 요청 형식입니다."),
+    TOO_MANY_REQUESTS(HttpStatus.TOO_MANY_REQUESTS, "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요."),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다."),
-    EMAIL_SEND_FAILED(HttpStatus.SERVICE_UNAVAILABLE, "인증 메일을 발송하지 못했습니다.");
+    SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "일시적으로 서비스를 사용할 수 없습니다."),
+    CLIENT_ERROR(HttpStatus.BAD_REQUEST, "요청을 처리할 수 없습니다."),
+    SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버에서 요청을 처리할 수 없습니다."),
+    CONCURRENT_UPDATE(HttpStatus.CONFLICT, "다른 요청이 먼저 수정했습니다. 다시 시도해 주세요.");
 
     private final HttpStatus status;
+
     private final String message;
+
+    ErrorCode(HttpStatus status, String message) {
+        this.status = status;
+        this.message = message;
+    }
+
+    @Override
+    public HttpStatus getHttpStatus() {
+        return status;
+    }
+
+    @Override
+    public String getErrorCode() {
+        return this == CONCURRENT_UPDATE ? "CONFLICT" : name();
+    }
+
+    @Override
+    public String getMessage() {
+        return message;
+    }
+
+    public static ErrorCode fromStatus(HttpStatusCode status) {
+        return Arrays.stream(values())
+                .filter(code -> code.status.value() == status.value())
+                .findFirst()
+                .orElse(status.is4xxClientError() ? CLIENT_ERROR : SERVER_ERROR);
+    }
 }
