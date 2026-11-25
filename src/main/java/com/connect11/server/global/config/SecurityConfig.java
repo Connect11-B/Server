@@ -1,5 +1,6 @@
 package com.connect11.server.global.config;
 
+import com.connect11.server.domain.auth.repository.RefreshSessionStore;
 import com.connect11.server.global.security.JwtAuthenticationFilter;
 import com.connect11.server.global.security.JwtProvider;
 import com.connect11.server.global.security.RestAccessDeniedHandler;
@@ -29,6 +30,7 @@ public class SecurityConfig {
     private final RestAuthenticationEntryPoint authenticationEntryPoint;
     private final RestAccessDeniedHandler accessDeniedHandler;
     private final AppProperties appProperties;
+    private final RefreshSessionStore sessionStore;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -47,7 +49,7 @@ public class SecurityConfig {
                 .exceptionHandling(e -> e
                         .authenticationEntryPoint(authenticationEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler))
-                .addFilterBefore(new JwtAuthenticationFilter(jwtProvider), UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(new JwtAuthenticationFilter(jwtProvider, sessionStore), UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/actuator/health", "/error").permitAll()

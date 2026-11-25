@@ -31,6 +31,7 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
     static final Duration RESEND_AFTER = Duration.ofSeconds(60);
     static final Duration HOURLY_WINDOW = Duration.ofHours(1);
     static final int HOURLY_LIMIT = 5;
+    static final int IP_HOURLY_LIMIT = 20;
     static final int MAX_ATTEMPTS = 5;
     static final Duration TOKEN_TTL = Duration.ofMinutes(10);
     static final Duration EXPIRED_GRACE = Duration.ofHours(1);
@@ -44,10 +45,14 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
     private final Clock clock;
 
     @Override
-    public EmailSendResponse send(EmailSendRequest request) {
+    public EmailSendResponse send(EmailSendRequest request, String clientIp) {
         String email = EmailNormalizer.normalize(request.email());
         VerificationPurpose purpose = request.purpose();
         String emailKey = hasher.emailHash(email);
+
+        if (rateLimiter.incrementIpHourly(hasher.hmac("ip:" + clientIp), HOURLY_WINDOW) > IP_HOURLY_LIMIT) {
+            throw new BusinessException(ErrorCode.EMAIL_RATE_LIMITED);
+        }
 
         if (!rateLimiter.tryAcquireCooldown(emailKey, RESEND_AFTER)) {
             throw new BusinessException(ErrorCode.EMAIL_RATE_LIMITED);

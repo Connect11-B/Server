@@ -1,6 +1,7 @@
 package com.connect11.server.domain.auth.controller;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -10,12 +11,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.connect11.server.domain.auth.dto.response.EmailSendResponse;
 import com.connect11.server.domain.auth.dto.response.EmailVerifyResponse;
 import com.connect11.server.domain.auth.entity.VerificationPurpose;
+import com.connect11.server.domain.auth.repository.RefreshSessionStore;
 import com.connect11.server.domain.auth.service.EmailVerificationService;
 import com.connect11.server.domain.user.entity.Role;
 import com.connect11.server.global.exception.BusinessException;
 import com.connect11.server.global.exception.ErrorCode;
 import com.connect11.server.global.security.JwtProvider;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -39,9 +42,17 @@ class EmailVerificationApiTest {
     @MockitoBean
     private EmailVerificationService emailVerificationService;
 
+    @MockitoBean
+    private RefreshSessionStore sessionStore;
+
+    @BeforeEach
+    void activeSessions() {
+        when(sessionStore.isActive(any(), any())).thenReturn(true);
+    }
+
     @Test
     void 코드_발송은_비회원도_호출할_수_있고_명세_형식으로_응답한다() throws Exception {
-        when(emailVerificationService.send(any())).thenReturn(new EmailSendResponse("vid-1", 600, 60));
+        when(emailVerificationService.send(any(), eq("127.0.0.1"))).thenReturn(new EmailSendResponse("vid-1", 600, 60));
 
         mockMvc.perform(post("/api/v1/auth/email/send")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -101,7 +112,7 @@ class EmailVerificationApiTest {
 
     @Test
     void 비즈니스_예외는_해당_상태코드와_에러코드로_응답한다() throws Exception {
-        when(emailVerificationService.send(any())).thenThrow(new BusinessException(ErrorCode.EMAIL_RATE_LIMITED));
+        when(emailVerificationService.send(any(), any())).thenThrow(new BusinessException(ErrorCode.EMAIL_RATE_LIMITED));
 
         mockMvc.perform(post("/api/v1/auth/email/send")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -132,7 +143,7 @@ class EmailVerificationApiTest {
 
     @Test
     void 처리되지_않은_예외는_500이고_내부_메시지를_노출하지_않는다() throws Exception {
-        when(emailVerificationService.send(any())).thenThrow(new IllegalStateException("redis password=secret"));
+        when(emailVerificationService.send(any(), any())).thenThrow(new IllegalStateException("redis password=secret"));
 
         mockMvc.perform(post("/api/v1/auth/email/send")
                         .contentType(MediaType.APPLICATION_JSON)

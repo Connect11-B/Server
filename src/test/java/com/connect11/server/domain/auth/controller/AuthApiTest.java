@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -16,6 +17,7 @@ import com.connect11.server.domain.auth.dto.response.LoginResponse;
 import com.connect11.server.domain.auth.dto.response.PasswordResetResponse;
 import com.connect11.server.domain.auth.dto.response.SignupResponse;
 import com.connect11.server.domain.auth.dto.response.TokenRefreshResponse;
+import com.connect11.server.domain.auth.repository.RefreshSessionStore;
 import com.connect11.server.domain.auth.service.AuthService;
 import com.connect11.server.domain.auth.service.PasswordResetService;
 import com.connect11.server.domain.auth.service.SignupService;
@@ -25,6 +27,7 @@ import com.connect11.server.global.exception.ErrorCode;
 import com.connect11.server.global.security.JwtProvider;
 import jakarta.servlet.http.Cookie;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -53,6 +56,14 @@ class AuthApiTest {
 
     @MockitoBean
     private PasswordResetService passwordResetService;
+
+    @MockitoBean
+    private RefreshSessionStore sessionStore;
+
+    @BeforeEach
+    void activeSessions() {
+        when(sessionStore.isActive(any(), any())).thenReturn(true);
+    }
 
     private static final String SIGNUP_JSON = """
             {"signupToken":"t","email":"student@school.kr","password":"Example123!","displayName":"예시학생","studentNumber":"1234"}
@@ -356,5 +367,43 @@ class AuthApiTest {
                         .content("{}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void 폐기된_세션의_access_token은_만료_전이어도_401() throws Exception {
+        String student = jwtProvider.createAccessToken(1L, Role.STUDENT, "sid-1");
+        when(sessionStore.isActive("sid-1", 1L)).thenReturn(false);
+
+        mockMvc.perform(get("/api/v1/rentals/me").header("Authorization", "Bearer " + student))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("UNAUTHENTICATED"));
+    }
+
+    @Test
+    void 세션이_살아_있으면_인증을_통과한다() throws Exception {
+        String admin = jwtProvider.createAccessToken(2L, Role.ADMIN, "sid-2");
+
+        mockMvc.perform(get("/api/v1/rentals/me").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isForbidden());
+        verify(sessionStore).isActive("sid-2", 2L);
+    }
+
+    @Test
+    void 세션_상태를_확인하지_못하면_인증하지_않는다() throws Exception {
+        String student = jwtProvider.createAccessToken(1L, Role.STUDENT, "sid-1");
+        when(sessionStore.isActive("sid-1", 1L)).thenThrow(new IllegalStateException("redis down"));
+
+        mockMvc.perform(get("/api/v1/rentals/me").header("Authorization", "Bearer " + student))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void 이미_폐기된_세션이어도_로그아웃은_204로_멱등이다() throws Exception {
+        String student = jwtProvider.createAccessToken(1L, Role.STUDENT, "sid-1");
+        when(sessionStore.isActive("sid-1", 1L)).thenReturn(false);
+
+        mockMvc.perform(post("/api/v1/auth/logout").header("Authorization", "Bearer " + student))
+                .andExpect(status().isNoContent());
+        verify(authService).logout(1L, "sid-1", null);
     }
 }

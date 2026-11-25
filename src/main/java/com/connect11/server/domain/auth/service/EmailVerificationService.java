@@ -7,7 +7,7 @@ import com.connect11.server.domain.auth.dto.response.EmailVerifyResponse;
 
 public interface EmailVerificationService {
 
-    EmailSendResponse send(EmailSendRequest request);
+    EmailSendResponse send(EmailSendRequest request, String clientIp);
 
     EmailVerifyResponse verify(EmailVerifyRequest request);
 }

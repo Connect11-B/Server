@@ -14,6 +14,7 @@ public class EmailSendRateLimiter {
 
     private static final String COOLDOWN_PREFIX = "auth:ev-cooldown:";
     private static final String HOURLY_PREFIX = "auth:ev-hourly:";
+    private static final String IP_HOURLY_PREFIX = "auth:ev-ip-hourly:";
 
     private static final RedisScript<Long> INCR_WITH_TTL = new DefaultRedisScript<>(
             "local c = redis.call('INCR', KEYS[1]) "
@@ -32,6 +33,12 @@ public class EmailSendRateLimiter {
 
     public long incrementHourly(String emailKey, Duration window) {
         Long count = redis.execute(INCR_WITH_TTL, List.of(HOURLY_PREFIX + emailKey),
+                String.valueOf(window.toSeconds()));
+        return count == null ? Long.MAX_VALUE : count;
+    }
+
+    public long incrementIpHourly(String ipKey, Duration window) {
+        Long count = redis.execute(INCR_WITH_TTL, List.of(IP_HOURLY_PREFIX + ipKey),
                 String.valueOf(window.toSeconds()));
         return count == null ? Long.MAX_VALUE : count;
     }

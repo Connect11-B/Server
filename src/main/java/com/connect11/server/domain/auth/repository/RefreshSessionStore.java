@@ -19,6 +19,8 @@ public class RefreshSessionStore {
 
     private static final String SESSION_PREFIX = "auth:rs:";
     private static final String USER_PREFIX = "auth:rs-user:";
+    private static final String USED_PREFIX = "auth:rs-used:";
+    private static final int MAX_USED_TOKENS = 1000;
     private static final Duration EXPIRED_GRACE = Duration.ofHours(1);
     private static final int MAX_TOKEN_LENGTH = 200;
 
@@ -47,19 +49,23 @@ public class RefreshSessionStore {
     @SuppressWarnings({"rawtypes", "unchecked"})
     private static final RedisScript<List> ROTATE = new DefaultRedisScript<>(
             "local k = KEYS[1] "
+                    + "local used = KEYS[2] "
                     + "if redis.call('EXISTS', k) == 0 then return {0} end "
                     + "local presented = ARGV[1] "
                     + "local cur = redis.call('HGET', k, 'cur') "
-                    + "local prev = redis.call('HGET', k, 'prev') "
                     + "local isCur = (presented == cur) "
-                    + "local isPrev = (prev and presented == prev) "
-                    + "if (not isCur) and (not isPrev) then return {0} end "
+                    + "local isUsed = (not isCur) and redis.call('ZSCORE', used, presented) "
+                    + "if (not isCur) and (not isUsed) then return {0} end "
                     + "if redis.call('HEXISTS', k, 'revoked') == 1 then return {2} end "
                     + "local userId = redis.call('HGET', k, 'userId') "
                     + "if tonumber(ARGV[3]) >= tonumber(redis.call('HGET', k, 'expiresAt')) then return {3} end "
-                    + "if isPrev then redis.call('HSET', k, 'revoked', '1') return {4, userId} end "
-                    + "redis.call('HSET', k, 'prev', cur, 'cur', ARGV[2], 'expiresAt', ARGV[4]) "
+                    + "if isUsed then redis.call('HSET', k, 'revoked', '1') return {4, userId} end "
+                    + "redis.call('HSET', k, 'cur', ARGV[2], 'expiresAt', ARGV[4]) "
+                    + "redis.call('ZADD', used, ARGV[3], cur) "
+                    + "redis.call('ZREMRANGEBYSCORE', used, '-inf', '(' .. ARGV[7]) "
+                    + "redis.call('ZREMRANGEBYRANK', used, 0, -(tonumber(ARGV[8]) + 1)) "
                     + "redis.call('EXPIRE', k, ARGV[5]) "
+                    + "redis.call('EXPIRE', used, ARGV[5]) "
                     + "redis.call('EXPIRE', ARGV[6] .. userId, ARGV[5]) "
                     + "return {1, userId}", List.class);
 
@@ -68,8 +74,7 @@ public class RefreshSessionStore {
                     + "if redis.call('EXISTS', k) == 0 then return 0 end "
                     + "if redis.call('HGET', k, 'userId') ~= ARGV[2] then return 0 end "
                     + "local cur = redis.call('HGET', k, 'cur') "
-                    + "local prev = redis.call('HGET', k, 'prev') "
-                    + "if ARGV[1] ~= cur and not (prev and ARGV[1] == prev) then return 0 end "
+                    + "if ARGV[1] ~= cur and not redis.call('ZSCORE', KEYS[2], ARGV[1]) then return 0 end "
                     + "redis.call('HSET', k, 'revoked', '1') "
                     + "return 1", Long.class);
 
@@ -79,6 +84,10 @@ public class RefreshSessionStore {
                     + "if redis.call('HGET', k, 'userId') ~= ARGV[1] then return 0 end "
                     + "redis.call('HSET', k, 'revoked', '1') "
                     + "return 1", Long.class);
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static final RedisScript<List> SESSION_STATE = new DefaultRedisScript<>(
+            "return redis.call('HMGET', KEYS[1], 'userId', 'expiresAt', 'revoked')", List.class);
 
     private static final RedisScript<Long> REVOKE_MANY = new DefaultRedisScript<>(
             "for i = 2, #ARGV do "
@@ -113,13 +122,15 @@ public class RefreshSessionStore {
         long now = clock.instant().getEpochSecond();
 
         List<?> result = redis.execute(ROTATE,
-                List.of(sessionKey(sessionId)),
+                List.of(sessionKey(sessionId), USED_PREFIX + sessionId),
                 SecretHasher.sha256(parsed.get().token()),
                 SecretHasher.sha256(newToken),
                 String.valueOf(now),
                 String.valueOf(now + lifetime.toSeconds()),
                 String.valueOf(lifetime.plus(EXPIRED_GRACE).toSeconds()),
-                USER_PREFIX);
+                USER_PREFIX,
+                String.valueOf(now - lifetime.toSeconds()),
+                String.valueOf(MAX_USED_TOKENS));
         if (result == null || result.isEmpty()) {
             return RotateResult.failure(Status.INVALID);
         }
@@ -139,10 +150,24 @@ public class RefreshSessionStore {
             return false;
         }
         Long ok = redis.execute(REVOKE_OWNED,
-                List.of(sessionKey(parsed.get().sessionId())),
+                List.of(sessionKey(parsed.get().sessionId()), USED_PREFIX + parsed.get().sessionId()),
                 SecretHasher.sha256(parsed.get().token()),
                 String.valueOf(ownerUserId));
         return Long.valueOf(1L).equals(ok);
+    }
+
+    public boolean isActive(String sessionId, Long userId) {
+        if (sessionId == null || userId == null) {
+            return false;
+        }
+        List<?> state = redis.execute(SESSION_STATE, List.of(sessionKey(sessionId)));
+        if (state == null || state.size() < 3 || state.get(0) == null || state.get(1) == null) {
+            return false;
+        }
+        if (!String.valueOf(userId).equals(String.valueOf(state.get(0))) || state.get(2) != null) {
+            return false;
+        }
+        return clock.instant().getEpochSecond() < Long.parseLong(String.valueOf(state.get(1)));
     }
 
     public boolean revokeSessionOwned(String sessionId, Long ownerUserId) {

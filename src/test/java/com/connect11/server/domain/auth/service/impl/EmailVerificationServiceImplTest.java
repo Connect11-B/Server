@@ -41,6 +41,7 @@ class EmailVerificationServiceImplTest {
     private static final Instant NOW = Instant.parse("2026-11-18T00:00:00Z");
     private static final String ID = "verification-id";
     private static final String EMAIL = "student@school.kr";
+    private static final String IP = "203.0.113.7";
 
     private EmailVerificationStore verificationStore;
     private VerificationTokenStore tokenStore;
@@ -65,6 +66,7 @@ class EmailVerificationServiceImplTest {
 
         when(rateLimiter.tryAcquireCooldown(anyString(), any())).thenReturn(true);
         when(rateLimiter.incrementHourly(anyString(), any())).thenReturn(1L);
+        when(rateLimiter.incrementIpHourly(anyString(), any())).thenReturn(1L);
         when(verificationStore.replaceLatest(anyString(), any(), anyString(), any())).thenReturn(Optional.empty());
     }
 
@@ -72,7 +74,7 @@ class EmailVerificationServiceImplTest {
     void 회원가입_코드_발송_성공() {
         when(userRepository.existsByEmail(EMAIL)).thenReturn(false);
 
-        EmailSendResponse response = service.send(new EmailSendRequest("  Student@School.kr ", VerificationPurpose.SIGNUP));
+        EmailSendResponse response = service.send(new EmailSendRequest("  Student@School.kr ", VerificationPurpose.SIGNUP), IP);
 
         assertThat(response.expiresIn()).isEqualTo(600);
         assertThat(response.resendAfter()).isEqualTo(60);
@@ -83,7 +85,7 @@ class EmailVerificationServiceImplTest {
     void 이미_가입된_이메일로_회원가입_코드_요청시_409() {
         when(userRepository.existsByEmail(EMAIL)).thenReturn(true);
 
-        assertError(() -> service.send(new EmailSendRequest(EMAIL, VerificationPurpose.SIGNUP)),
+        assertError(() -> service.send(new EmailSendRequest(EMAIL, VerificationPurpose.SIGNUP), IP),
                 ErrorCode.EMAIL_ALREADY_REGISTERED);
         verify(mailSender, never()).sendCode(anyString(), anyString(), any());
     }
@@ -92,7 +94,7 @@ class EmailVerificationServiceImplTest {
     void 미가입_이메일의_비밀번호_재설정은_정상_응답하지만_메일은_보내지_않는다() {
         when(userRepository.existsByEmail(EMAIL)).thenReturn(false);
 
-        EmailSendResponse response = service.send(new EmailSendRequest(EMAIL, VerificationPurpose.PASSWORD_RESET));
+        EmailSendResponse response = service.send(new EmailSendRequest(EMAIL, VerificationPurpose.PASSWORD_RESET), IP);
 
         assertThat(response.verificationId()).isNotBlank();
         verify(verificationStore).save(any(), any());
@@ -103,7 +105,7 @@ class EmailVerificationServiceImplTest {
     void 재발송_대기시간_중이면_429() {
         when(rateLimiter.tryAcquireCooldown(anyString(), any())).thenReturn(false);
 
-        assertError(() -> service.send(new EmailSendRequest(EMAIL, VerificationPurpose.SIGNUP)),
+        assertError(() -> service.send(new EmailSendRequest(EMAIL, VerificationPurpose.SIGNUP), IP),
                 ErrorCode.EMAIL_RATE_LIMITED);
     }
 
@@ -111,7 +113,7 @@ class EmailVerificationServiceImplTest {
     void 시간당_5회_초과시_429() {
         when(rateLimiter.incrementHourly(anyString(), any())).thenReturn(6L);
 
-        assertError(() -> service.send(new EmailSendRequest(EMAIL, VerificationPurpose.SIGNUP)),
+        assertError(() -> service.send(new EmailSendRequest(EMAIL, VerificationPurpose.SIGNUP), IP),
                 ErrorCode.EMAIL_RATE_LIMITED);
     }
 
@@ -121,7 +123,7 @@ class EmailVerificationServiceImplTest {
         doThrow(new RuntimeException("smtp down"))
                 .when(mailSender).sendCode(anyString(), anyString(), any());
 
-        assertError(() -> service.send(new EmailSendRequest(EMAIL, VerificationPurpose.SIGNUP)),
+        assertError(() -> service.send(new EmailSendRequest(EMAIL, VerificationPurpose.SIGNUP), IP),
                 ErrorCode.EMAIL_SEND_FAILED);
         verify(verificationStore).delete(anyString());
         verify(rateLimiter).releaseCooldown(anyString());
@@ -221,5 +223,36 @@ class EmailVerificationServiceImplTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(expected);
+    }
+
+    @Test
+    void IP별_시간당_발송_한도를_넘으면_429이고_이메일_제한은_건드리지_않는다() {
+        when(rateLimiter.incrementIpHourly(anyString(), any())).thenReturn(21L);
+
+        assertError(() -> service.send(new EmailSendRequest("other@school.kr", VerificationPurpose.SIGNUP), IP),
+                ErrorCode.EMAIL_RATE_LIMITED);
+        verify(rateLimiter, never()).tryAcquireCooldown(anyString(), any());
+        verify(mailSender, never()).sendCode(anyString(), anyString(), any());
+    }
+
+    @Test
+    void IP별_한도는_20회까지_허용한다() {
+        when(rateLimiter.incrementIpHourly(anyString(), any())).thenReturn(20L);
+        when(userRepository.existsByEmail(EMAIL)).thenReturn(false);
+
+        service.send(new EmailSendRequest(EMAIL, VerificationPurpose.SIGNUP), IP);
+
+        verify(mailSender).sendCode(eq(EMAIL), anyString(), eq(VerificationPurpose.SIGNUP));
+    }
+
+    @Test
+    void IP_제한_키에는_IP_원문이_들어가지_않는다() {
+        when(userRepository.existsByEmail(EMAIL)).thenReturn(false);
+
+        service.send(new EmailSendRequest(EMAIL, VerificationPurpose.SIGNUP), IP);
+
+        org.mockito.ArgumentCaptor<String> key = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(rateLimiter).incrementIpHourly(key.capture(), eq(java.time.Duration.ofHours(1)));
+        assertThat(key.getValue()).doesNotContain(IP);
     }
 }
