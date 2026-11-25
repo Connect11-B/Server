@@ -39,6 +39,21 @@ class PropertiesConfigTest {
     }
 
     @Test
+    void 프로필을_지정하지_않으면_log_모드는_기동_실패() {
+        assertThatThrownBy(() -> PropertiesConfig.validateMailMode(mail("log"), new MockEnvironment()))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void local과_prod를_함께_켜면_log_모드는_기동_실패() {
+        MockEnvironment env = new MockEnvironment();
+        env.setActiveProfiles("local", "prod");
+
+        assertThatThrownBy(() -> PropertiesConfig.validateMailMode(mail("log"), env))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
     void 알_수_없는_모드는_기동_실패() {
         runner.withPropertyValues("app.mail.mode=console")
                 .run(context -> assertThat(context).hasFailed());
@@ -46,7 +61,7 @@ class PropertiesConfigTest {
 
     @Test
     void 허용된_모드는_기동_성공() {
-        runner.withPropertyValues("app.mail.mode=log")
+        runner.withPropertyValues("app.mail.mode=log", "spring.profiles.active=test")
                 .run(context -> assertThat(context).hasNotFailed());
     }
 

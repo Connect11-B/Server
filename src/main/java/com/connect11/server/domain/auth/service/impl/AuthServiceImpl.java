@@ -118,6 +118,13 @@ public class AuthServiceImpl implements AuthService {
             sessionStore.revokeSessionOwned(sessionId, userId);
             return;
         }
+        boolean sameSession = RefreshSessionStore.sessionIdOf(refreshToken)
+                .filter(sid -> sid.equals(sessionId))
+                .isPresent();
+        if (!sameSession) {
+            sessionStore.revokeSessionOwned(sessionId, userId);
+            throw new CustomException(AuthErrorCode.REFRESH_TOKEN_INVALID);
+        }
         if (!sessionStore.revokeOwned(refreshToken, userId)) {
             throw new CustomException(AuthErrorCode.REFRESH_TOKEN_INVALID);
         }

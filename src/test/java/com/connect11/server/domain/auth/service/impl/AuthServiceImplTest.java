@@ -267,10 +267,28 @@ class AuthServiceImplTest {
 
     @Test
     void 다른_사용자의_토큰이거나_유효하지_않으면_401_REFRESH_TOKEN_INVALID() {
-        when(sessionStore.revokeOwned("sid-9.secret", 1L)).thenReturn(false);
+        when(sessionStore.revokeOwned("sid-1.secret", 1L)).thenReturn(false);
 
+        assertThat(errorOf(() -> service.logout(1L, "sid-1", "sid-1.secret")))
+                .isEqualTo(AuthErrorCode.REFRESH_TOKEN_INVALID);
+    }
+
+    @Test
+    void 쿠키의_세션이_access_token의_세션과_다르면_그_세션은_건드리지_않고_현재_세션만_폐기한다() {
         assertThat(errorOf(() -> service.logout(1L, "sid-1", "sid-9.secret")))
                 .isEqualTo(AuthErrorCode.REFRESH_TOKEN_INVALID);
+
+        verify(sessionStore).revokeSessionOwned("sid-1", 1L);
+        verify(sessionStore, never()).revokeOwned(any(), any());
+    }
+
+    @Test
+    void 형식이_잘못된_쿠키면_현재_세션만_폐기하고_401_REFRESH_TOKEN_INVALID() {
+        assertThat(errorOf(() -> service.logout(1L, "sid-1", "garbage")))
+                .isEqualTo(AuthErrorCode.REFRESH_TOKEN_INVALID);
+
+        verify(sessionStore).revokeSessionOwned("sid-1", 1L);
+        verify(sessionStore, never()).revokeOwned(any(), any());
     }
 
     @Test

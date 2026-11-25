@@ -194,6 +194,10 @@ public class RefreshSessionStore {
         redis.delete(userKey);
     }
 
+    public static Optional<String> sessionIdOf(String refreshToken) {
+        return parse(refreshToken).map(ParsedToken::sessionId);
+    }
+
     private static Optional<ParsedToken> parse(String token) {
         if (token == null || token.length() > MAX_TOKEN_LENGTH) {
             return Optional.empty();

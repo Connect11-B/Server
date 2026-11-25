@@ -1,13 +1,13 @@
 package com.connect11.server.global.security;
 
 import com.connect11.server.global.config.AppProperties;
+import com.connect11.server.global.config.PropertiesConfig;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.Set;
 import org.springframework.core.env.Environment;
-import org.springframework.core.env.Profiles;
 import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Component;
 
@@ -34,8 +34,9 @@ public class RefreshTokenCookie {
         if ("None".equals(sameSite) && !secure) {
             throw new IllegalStateException("SameSite=None 쿠키는 Secure가 필수입니다.");
         }
-        if (!secure && environment.acceptsProfiles(Profiles.of("prod"))) {
-            throw new IllegalStateException("운영(prod)에서는 refresh token 쿠키에 Secure를 꺼서는 안 됩니다.");
+        if (!secure && !PropertiesConfig.isDevProfileActive(environment)) {
+            throw new IllegalStateException(
+                    "refresh token 쿠키의 Secure는 local 또는 test 프로필을 명시적으로 활성화했을 때만 끌 수 있습니다.");
         }
     }
 

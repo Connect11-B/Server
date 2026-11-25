@@ -77,7 +77,20 @@ class RefreshTokenCookieTest {
         assertThatThrownBy(() -> new RefreshTokenCookie(props(false, "Strict"), prod))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Secure");
-        assertThat(new RefreshTokenCookie(props(false, "Strict"), new MockEnvironment()).issue("a.b").isSecure())
-                .isFalse();
+    }
+
+    @Test
+    void 프로필을_지정하지_않으면_Secure를_끌_수_없다() {
+        assertThatThrownBy(() -> new RefreshTokenCookie(props(false, "Strict"), new MockEnvironment()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Secure");
+    }
+
+    @Test
+    void local_프로필을_명시하면_Secure를_끌_수_있다() {
+        MockEnvironment local = new MockEnvironment();
+        local.setActiveProfiles("local");
+
+        assertThat(new RefreshTokenCookie(props(false, "Strict"), local).issue("a.b").isSecure()).isFalse();
     }
 }
