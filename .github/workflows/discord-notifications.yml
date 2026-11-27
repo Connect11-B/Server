@@ -39,6 +39,7 @@ jobs:
         if: steps.webhook.outputs.configured == 'true'
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_PR_ROLE_ID: ${{ vars.DISCORD_PR_ROLE_ID }}
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           GITHUB_EVENT_ACTION: ${{ github.event.action }}
           GITHUB_EVENT_PATH: ${{ github.event_path }}
@@ -120,6 +121,12 @@ jobs:
             if (state === "changes_requested") color = 0xcf222e;
           }
 
+          const roleId = (process.env.DISCORD_PR_ROLE_ID || "").trim();
+          const shouldMentionRole = eventName === "pull_request"
+            && ["opened", "reopened", "ready_for_review"].includes(eventAction)
+            && !item.draft
+            && /^[1-9][0-9]{16,19}$/.test(roleId);
+
           const payload = {
             allowed_mentions: { parse: [] },
             embeds: [{
@@ -132,6 +139,11 @@ jobs:
             }]
           };
 
+          if (shouldMentionRole) {
+            payload.content = "<@&" + roleId + ">";
+            payload.allowed_mentions.roles = [roleId];
+          }
+
           const response = await fetch(process.env.DISCORD_WEBHOOK_URL, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -142,4 +154,3 @@ jobs:
             throw new Error("Discord webhook returned HTTP " + response.status);
           }
           NODE
-
