@@ -6,3 +6,10 @@ spring:
   jpa:
     hibernate:
       ddl-auto: create-drop
+app:
+  mail:
+    mode: log
+  jwt:
+    secret: test-only-jwt-secret-not-for-production-0123456789
+  auth:
+    code-pepper: test-only-pepper-not-for-production

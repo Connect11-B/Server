@@ -1,8 +1,6 @@
 spring:
   application:
     name: village-server
-  profiles:
-    default: local
   jackson:
     time-zone: Asia/Seoul
   jpa:
@@ -19,3 +17,21 @@ management:
     web:
       exposure:
         include: health
+
+app:
+  jwt:
+    secret: ${JWT_SECRET}
+    access-token-ttl-seconds: 1800
+  auth:
+    code-pepper: ${AUTH_CODE_PEPPER}
+    refresh-token-ttl-seconds: 1209600
+    cookie-secure: ${COOKIE_SECURE:true}
+    cookie-same-site: ${COOKIE_SAME_SITE:Strict}
+  mail:
+    from: ${MAIL_FROM:}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:}
+  admin:
+    email: ${ADMIN_EMAIL:}
+    password: ${ADMIN_PASSWORD:}
+    name: ${ADMIN_NAME:관리자}

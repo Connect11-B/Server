@@ -14,3 +14,10 @@ spring:
     # 테이블 정의서 기반 스키마 확정 전까지 로컬에서만 자동 생성
     hibernate:
       ddl-auto: update
+
+app:
+  auth:
+    # 로컬 http 개발용. 운영(prod)에서는 true여야 하며 아니면 서버가 시작되지 않는다.
+    cookie-secure: false
+  mail:
+    mode: log
